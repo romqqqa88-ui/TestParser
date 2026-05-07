@@ -94,6 +94,15 @@ class AsyncHttpClient:
             delay += random.uniform(0, jitter_seconds)
         return delay
 
+    def _compute_request_timeout(self, attempt: int) -> float:
+        base_timeout = float(getattr(self.settings, "request_timeout", 20))
+        timeout_multiplier = float(getattr(self.settings, "request_timeout_backoff_multiplier", 1.0))
+        timeout_max = float(getattr(self.settings, "request_timeout_max_seconds", base_timeout))
+        if timeout_multiplier <= 0:
+            timeout_multiplier = 1.0
+        timeout_value = base_timeout * (timeout_multiplier**attempt)
+        return min(timeout_max, timeout_value)
+
     def _parse_retry_after(self, retry_after_value: str | None, now: datetime | None = None) -> float | None:
         max_retry_after = float(getattr(self.settings, "request_retry_after_max_seconds", 120.0))
 
@@ -177,12 +186,12 @@ class AsyncHttpClient:
 
     async def get(self, url: str) -> str:
         attempts = self.settings.request_retries + 1
-        timeout = self.settings.request_timeout
         rotate_proxy_on_retry = bool(getattr(self.settings, "proxy_rotate_on_retry", True))
         retry_on_statuses = bool(getattr(self.settings, "request_retry_on_statuses", True))
         retry_on_exceptions = bool(getattr(self.settings, "request_retry_on_exceptions", True))
         current_proxy = self.proxy_pool.next() if self.proxy_pool else None
         for attempt in range(attempts):
+            timeout = self._compute_request_timeout(attempt)
             if attempt > 0 and rotate_proxy_on_retry and self.proxy_pool:
                 current_proxy = self.proxy_pool.next()
             headers = self._build_headers()

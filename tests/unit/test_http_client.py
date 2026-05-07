@@ -305,3 +305,24 @@ def test_compute_retry_delay_skips_jitter_for_retry_after_by_default():
     client = AsyncHttpClient(DummySettings())
     delay = client._compute_retry_delay(attempt=0, retry_after=2.0)
     assert delay == 2.0
+
+
+def test_compute_request_timeout_backoff_with_cap():
+    class DummySettings:
+        request_timeout = 10
+        request_timeout_backoff_multiplier = 1.5
+        request_timeout_max_seconds = 20.0
+        request_retries = 0
+        request_delay_seconds = 1.0
+        request_min_retry_delay_seconds = 0.1
+        request_backoff_multiplier = 2.0
+        request_jitter_seconds = 0.0
+        request_retry_statuses = "429"
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+
+    client = AsyncHttpClient(DummySettings())
+    assert client._compute_request_timeout(0) == 10
+    assert client._compute_request_timeout(1) == 15
+    assert client._compute_request_timeout(2) == 20.0

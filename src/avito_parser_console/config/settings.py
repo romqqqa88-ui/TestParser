@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/avito_parser"
 
     request_timeout: int = 20
+    request_timeout_backoff_multiplier: float = 1.0
+    request_timeout_max_seconds: float = 20.0
     request_retries: int = 3
     request_delay_seconds: float = 1.0
     request_min_retry_delay_seconds: float = 0.2
