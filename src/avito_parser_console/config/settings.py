@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     request_max_backoff_seconds: float = 20.0
     request_retry_after_max_seconds: float = 120.0
     request_retry_statuses: str = "429,403,503"
+    request_retry_on_exceptions: bool = True
     http_backend: str = "httpx"  # httpx | curl_cffi | auto
     http_backend_auto_order: str = "httpx,curl_cffi"
     curl_impersonate: str = "chrome124"

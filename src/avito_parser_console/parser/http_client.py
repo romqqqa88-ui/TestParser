@@ -175,6 +175,7 @@ class AsyncHttpClient:
         attempts = self.settings.request_retries + 1
         timeout = self.settings.request_timeout
         rotate_proxy_on_retry = bool(getattr(self.settings, "proxy_rotate_on_retry", True))
+        retry_on_exceptions = bool(getattr(self.settings, "request_retry_on_exceptions", True))
         current_proxy = self.proxy_pool.next() if self.proxy_pool else None
         for attempt in range(attempts):
             if attempt > 0 and rotate_proxy_on_retry and self.proxy_pool:
@@ -193,7 +194,7 @@ class AsyncHttpClient:
                     raise RuntimeError(f"HTTP {status_code}")
                 return response_text
             except Exception:
-                if attempt == attempts - 1:
+                if attempt == attempts - 1 or not retry_on_exceptions:
                     raise
                 await self._sleep_before_retry(attempt)
         raise RuntimeError("Unreachable")
