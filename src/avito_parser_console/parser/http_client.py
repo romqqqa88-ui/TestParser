@@ -5,6 +5,7 @@ import math
 import random
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 
 import httpx
 
@@ -55,6 +56,28 @@ class AsyncHttpClient:
                 order.append(item)
         return order or ["httpx", "curl_cffi"]
 
+    def _pick_curl_impersonate(self) -> str:
+        pool_raw = str(getattr(self.settings, "curl_impersonate_pool", "") or "").strip()
+        if pool_raw:
+            variants = [x.strip() for x in pool_raw.split(",") if x.strip()]
+            if variants:
+                return random.choice(variants)
+        return str(getattr(self.settings, "curl_impersonate", "chrome124"))
+
+    def _effective_cookie(self) -> str:
+        inline = str(getattr(self.settings, "request_cookie", "") or "").strip()
+        path_raw = str(getattr(self.settings, "request_cookie_file", "") or "").strip()
+        if path_raw:
+            path = Path(path_raw)
+            if path.is_file():
+                try:
+                    from_file = path.read_text(encoding="utf-8").strip()
+                    if from_file:
+                        return from_file
+                except OSError:
+                    pass
+        return inline
+
     def _build_headers(self, request_url: str | None = None) -> dict[str, str]:
         ua = self.settings.user_agent
         ua_pool_raw = getattr(self.settings, "user_agent_pool", "")
@@ -63,7 +86,7 @@ class AsyncHttpClient:
             if variants:
                 ua = random.choice(variants)
         headers = {"User-Agent": ua}
-        cookie = str(getattr(self.settings, "request_cookie", "") or "").strip()
+        cookie = self._effective_cookie()
         if cookie:
             headers["Cookie"] = cookie
         if getattr(self.settings, "browser_headers_enabled", True):
@@ -168,7 +191,7 @@ class AsyncHttpClient:
     ) -> tuple[int, str, dict]:
         from curl_cffi.requests import AsyncSession
 
-        impersonate = str(getattr(self.settings, "curl_impersonate", "chrome124"))
+        impersonate = self._pick_curl_impersonate()
         async with AsyncSession() as client:
             response = await client.get(
                 url,

@@ -28,6 +28,10 @@ dev = [
     "pytest-asyncio>=0.23.8",
 ]
 
+playwright = [
+    "playwright>=1.40.0",
+]
+
 [project.scripts]
 avito-parser = "avito_parser_console.main:run"
 

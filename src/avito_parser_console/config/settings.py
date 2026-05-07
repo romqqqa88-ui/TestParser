@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     http_backend: str = "httpx"  # httpx | curl_cffi | auto
     http_backend_auto_order: str = "curl_cffi,httpx"
     curl_impersonate: str = "chrome124"
+    # Comma-separated curl_cffi impersonate tokens; random choice per request (TLS fingerprint rotation).
+    curl_impersonate_pool: str = "chrome124,chrome123,chrome120"
     max_pages_per_query: int = 5
     max_concurrency: int = 5
     user_agent: str = (
@@ -40,6 +42,8 @@ class Settings(BaseSettings):
     browser_headers_enabled: bool = True
     # Optional raw Cookie header value copied from a real browser (helps some 429-heavy IPs).
     request_cookie: str = ""
+    # Optional path to a UTF-8 file whose contents are pasted Cookie header (refreshed without editing .env).
+    request_cookie_file: str = ""
 
     proxy_enabled: bool = False
     proxy_list: str = ""

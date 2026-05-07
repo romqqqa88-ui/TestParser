@@ -7,3 +7,4 @@ __pycache__/
 *.pyd
 exports/
 logs/
+storage/avito_cookies.txt

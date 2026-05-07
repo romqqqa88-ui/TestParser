@@ -495,3 +495,25 @@ def test_build_headers_sets_avito_referer():
     h = client._build_headers("https://www.avito.ru/moskva/kvartiry")
     assert h["Referer"] == "https://www.avito.ru/"
     assert h["Sec-Fetch-Site"] == "same-origin"
+
+
+def test_pick_curl_impersonate_from_pool(monkeypatch):
+    class DummySettings:
+        curl_impersonate_pool = "chrome120,chrome124"
+        curl_impersonate = "chrome99"
+
+    client = AsyncHttpClient(DummySettings())
+    monkeypatch.setattr("avito_parser_console.parser.http_client.random.choice", lambda seq: seq[0])
+    assert client._pick_curl_impersonate() == "chrome120"
+
+
+def test_effective_cookie_prefers_file(tmp_path):
+    cookie_file = tmp_path / "cookies.txt"
+    cookie_file.write_text("srv_id=z", encoding="utf-8")
+
+    class DummySettings:
+        request_cookie = "inline=1"
+        request_cookie_file = str(cookie_file)
+
+    client = AsyncHttpClient(DummySettings())
+    assert client._effective_cookie() == "srv_id=z"
