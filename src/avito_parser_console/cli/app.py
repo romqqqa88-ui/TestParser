@@ -30,12 +30,13 @@ class CliApp:
                     self.last_result = await self.orchestrator.run_parse(request, session)
                     self.console.print(
                         f"[green]Готово.[/green] Найдено: {self.last_result.stats.found_listings}, "
+                        f"Дубликаты: {self.last_result.stats.duplicate_dropped}, "
                         f"Сохранено: {self.last_result.stats.saved_listings}, Ошибок: {self.last_result.stats.errors}"
                     )
                     for query_url, values in self.last_result.stats.query_stats.items():
                         self.console.print(
                             f"[blue]{query_url}[/blue] pages={values['processed_pages']} "
-                            f"found={values['found_listings']} passed={values['passed_listings']} "
+                            f"found={values['found_listings']} dup={values['duplicate_dropped']} passed={values['passed_listings']} "
                             f"filtered={values['filtered_out']} capped={values['capped_out']} errors={values['errors']}"
                         )
                 if self.last_result.filtered_out_records:

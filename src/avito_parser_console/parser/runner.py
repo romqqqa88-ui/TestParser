@@ -26,6 +26,7 @@ class ParserRunnerService:
             str(url): {
                 "processed_pages": 0,
                 "found_listings": 0,
+                "duplicate_dropped": 0,
                 "passed_listings": 0,
                 "filtered_out": 0,
                 "capped_out": 0,
@@ -60,11 +61,22 @@ class ParserRunnerService:
             except Exception:
                 stats.errors += 1
 
+        # Deduplicate within the run by listing_id across all pages/queries.
+        deduped_collected: list[tuple[str, Listing]] = []
+        seen_ids: set[str] = set()
+        for query_url, listing in collected:
+            if listing.listing_id in seen_ids:
+                stats.duplicate_dropped += 1
+                query_stats[query_url]["duplicate_dropped"] += 1
+                continue
+            seen_ids.add(listing.listing_id)
+            deduped_collected.append((query_url, listing))
+
         filtered = []
         filtered_records = []
         filtered_summary: dict[str, int] = {}
         passed_candidates_by_query: dict[str, list[Listing]] = {str(url): [] for url in request.search.query_urls}
-        for query_url, listing in collected:
+        for query_url, listing in deduped_collected:
             ok, failed = self.filter_engine.evaluate(listing, request.filters)
             if ok:
                 passed_candidates_by_query[query_url].append(listing)

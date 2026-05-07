@@ -31,6 +31,7 @@ async def test_parser_runner_handles_empty(monkeypatch):
     assert result.stats.processed_pages == 1
     assert result.stats.found_listings == 0
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["processed_pages"] == 1
+    assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["duplicate_dropped"] == 0
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["passed_listings"] == 0
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["filtered_out"] == 0
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["capped_out"] == 0
@@ -88,6 +89,7 @@ async def test_parser_runner_collects_filtered_records(monkeypatch):
     assert result.filtered_out_records[0]["query_url"] == "https://www.avito.ru/moskva/kvartiry"
     assert result.filtered_out_summary["PriceRule"] == 1
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["passed_listings"] == 0
+    assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["duplicate_dropped"] == 0
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["filtered_out"] == 1
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["capped_out"] == 0
 
@@ -124,6 +126,7 @@ async def test_parser_runner_collects_query_level_errors(monkeypatch):
     assert result.stats.query_stats["https://www.avito.ru/good"]["errors"] == 0
     assert result.stats.query_stats["https://www.avito.ru/bad"]["errors"] == 1
     assert result.stats.query_stats["https://www.avito.ru/good"]["passed_listings"] == 0
+    assert result.stats.query_stats["https://www.avito.ru/good"]["duplicate_dropped"] == 0
     assert result.stats.query_stats["https://www.avito.ru/good"]["filtered_out"] == 0
     assert result.stats.query_stats["https://www.avito.ru/good"]["capped_out"] == 0
 
@@ -158,6 +161,41 @@ async def test_parser_runner_applies_per_query_result_limit(monkeypatch):
     result = await service.run(request)
     stats = result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]
     assert stats["passed_listings"] == 1
+    assert stats["duplicate_dropped"] == 0
     assert stats["capped_out"] == 1
     assert stats["filtered_out"] == 1
     assert result.filtered_out_summary["QueryLimitRule"] == 1
+
+
+@pytest.mark.asyncio
+async def test_parser_runner_deduplicates_same_listing_id(monkeypatch):
+    class DummySettings:
+        proxy_enabled = False
+        proxy_list = ""
+        request_timeout = 5
+        request_retries = 0
+        request_delay_seconds = 0
+        max_pages_per_query = 2
+        max_concurrency = 2
+        user_agent = "ua"
+
+    service = ParserRunnerService(DummySettings())
+
+    async def fake_get(url: str) -> str:
+        return (
+            '<script type="mime/invalid">{"items":['
+            '{"id":"dup-1","url":"https://www.avito.ru/dup-1","title":"dup","price":1000}'
+            ']}</script>'
+        )
+
+    monkeypatch.setattr(service.http_client, "get", fake_get)
+    request = ParseRunRequest(
+        search=SearchConfig(query_urls=["https://www.avito.ru/moskva/kvartiry"], max_pages_per_query=2),
+        filters=FilterConfig(),
+    )
+    result = await service.run(request)
+    stats = result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]
+    assert result.stats.found_listings == 2
+    assert result.stats.duplicate_dropped == 1
+    assert stats["duplicate_dropped"] == 1
+    assert stats["passed_listings"] == 1

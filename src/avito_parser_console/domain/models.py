@@ -59,6 +59,7 @@ class SearchConfig(BaseModel):
 class RunStats(BaseModel):
     processed_pages: int = 0
     found_listings: int = 0
+    duplicate_dropped: int = 0
     filtered_out: int = 0
     saved_listings: int = 0
     errors: int = 0
