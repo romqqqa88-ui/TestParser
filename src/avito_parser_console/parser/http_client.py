@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import random
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -126,7 +127,10 @@ class AsyncHttpClient:
         if not value:
             return None
         try:
-            return _cap(float(value))
+            parsed = float(value)
+            if not math.isfinite(parsed):
+                return None
+            return _cap(parsed)
         except ValueError:
             pass
         try:
