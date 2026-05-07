@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     request_backoff_multiplier: float = 2.0
     request_jitter_seconds: float = 0.3
     request_max_backoff_seconds: float = 20.0
+    request_retry_after_max_seconds: float = 120.0
     request_retry_statuses: str = "429,403,503"
     http_backend: str = "httpx"  # httpx | curl_cffi | auto
     http_backend_auto_order: str = "httpx,curl_cffi"

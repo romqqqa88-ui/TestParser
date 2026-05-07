@@ -83,13 +83,18 @@ class AsyncHttpClient:
         await asyncio.sleep(delay)
 
     def _parse_retry_after(self, retry_after_value: str | None, now: datetime | None = None) -> float | None:
+        max_retry_after = float(getattr(self.settings, "request_retry_after_max_seconds", 120.0))
+
+        def _cap(value: float) -> float:
+            return min(max(0.0, value), max_retry_after)
+
         if not retry_after_value:
             return None
         value = retry_after_value.strip()
         if not value:
             return None
         try:
-            return float(value)
+            return _cap(float(value))
         except ValueError:
             pass
         try:
@@ -101,7 +106,7 @@ class AsyncHttpClient:
         ref = now or datetime.now(timezone.utc)
         if ref.tzinfo is None:
             ref = ref.replace(tzinfo=timezone.utc)
-        return max(0.0, (retry_dt - ref).total_seconds())
+        return _cap((retry_dt - ref).total_seconds())
 
     async def _request_httpx(self, url: str, headers: dict[str, str], proxy: str | None, timeout: int) -> tuple[int, str, dict]:
         async with httpx.AsyncClient(

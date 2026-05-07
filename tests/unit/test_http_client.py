@@ -188,3 +188,22 @@ def test_parse_retry_after_invalid_value():
     client = AsyncHttpClient(DummySettings())
     delay = client._parse_retry_after("not-a-valid-retry-after")
     assert delay is None
+
+
+def test_parse_retry_after_caps_large_values():
+    class DummySettings:
+        request_timeout = 5
+        request_retries = 0
+        request_delay_seconds = 0
+        request_backoff_multiplier = 1.0
+        request_jitter_seconds = 0.0
+        request_max_backoff_seconds = 1.0
+        request_retry_after_max_seconds = 30.0
+        request_retry_statuses = "429"
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+
+    client = AsyncHttpClient(DummySettings())
+    delay = client._parse_retry_after("120")
+    assert delay == 30.0
