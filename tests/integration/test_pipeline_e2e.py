@@ -1,5 +1,6 @@
 import pytest
 
+from avito_parser_console.parser.avito_extractor import AvitoExtractor
 from avito_parser_console.domain.models import FilterConfig, ParseRunRequest, SearchConfig
 from avito_parser_console.parser.runner import ParserRunnerService
 
@@ -29,3 +30,24 @@ async def test_parser_runner_handles_empty(monkeypatch):
     result = await service.run(request)
     assert result.stats.processed_pages == 1
     assert result.stats.found_listings == 0
+
+
+def test_extractor_parses_wrapped_json_payload():
+    html = (
+        '<script type="mime/invalid">window.__initialData = '
+        '{"items":[{"id":"fixture-1","url":"https://www.avito.ru/item","title":"Квартира","price":123}]};</script>'
+    )
+    listings = AvitoExtractor().extract(html)
+    assert len(listings) == 1
+    assert listings[0].listing_id == "fixture-1"
+
+
+def test_extractor_parses_html_fixture():
+    with open("tests/fixtures/avito_search_sample.html", "r", encoding="utf-8") as fp:
+        html = fp.read()
+    listings = AvitoExtractor().extract(html)
+    assert len(listings) == 1
+    listing = listings[0]
+    assert listing.listing_id == "sample-42"
+    assert listing.city == "Москва"
+    assert listing.metro == "Тверская"

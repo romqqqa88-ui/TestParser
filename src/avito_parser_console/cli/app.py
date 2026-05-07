@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import questionary
 from rich.console import Console
 
 from avito_parser_console.cli.forms import collect_run_request
@@ -32,7 +33,10 @@ class CliApp:
                         f"Сохранено: {self.last_result.stats.saved_listings}, Ошибок: {self.last_result.stats.errors}"
                     )
             elif action == "Экспорт":
-                fmt = "xlsx"
+                fmt = (
+                    questionary.select("Формат экспорта", choices=["xlsx", "csv", "json"], default="xlsx").ask()
+                    or "xlsx"
+                )
                 async with SessionLocal() as session:
                     path = await self.orchestrator.export_latest(session, fmt=fmt)
                 self.console.print(f"[green]Экспорт завершён:[/green] {path}")

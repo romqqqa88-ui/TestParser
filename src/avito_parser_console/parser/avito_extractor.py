@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -19,6 +20,8 @@ def _safe_get(d: dict[str, Any], *keys: str, default: Any = None) -> Any:
 
 
 class AvitoExtractor:
+    _json_object_re = re.compile(r"\{.*\}", re.DOTALL)
+
     def extract(self, html: str) -> list[Listing]:
         soup = BeautifulSoup(html, "html.parser")
         scripts = soup.select('script[type="mime/invalid"]')
@@ -27,9 +30,8 @@ class AvitoExtractor:
             text = script.text.strip()
             if not text:
                 continue
-            try:
-                payload = json.loads(text)
-            except json.JSONDecodeError:
+            payload = self._parse_payload(text)
+            if payload is None:
                 continue
             candidates = payload.get("items") if isinstance(payload, dict) else None
             if not isinstance(candidates, list):
@@ -39,6 +41,20 @@ class AvitoExtractor:
                 if parsed:
                     listings.append(parsed)
         return listings
+
+    def _parse_payload(self, text: str) -> dict[str, Any] | None:
+        try:
+            parsed = json.loads(text)
+            return parsed if isinstance(parsed, dict) else None
+        except json.JSONDecodeError:
+            match = self._json_object_re.search(text)
+            if not match:
+                return None
+            try:
+                parsed = json.loads(match.group(0))
+                return parsed if isinstance(parsed, dict) else None
+            except json.JSONDecodeError:
+                return None
 
     def _to_listing(self, item: dict[str, Any]) -> Listing | None:
         listing_id = str(item.get("id") or "")
