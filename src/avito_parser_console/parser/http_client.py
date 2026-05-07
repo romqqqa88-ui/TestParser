@@ -36,7 +36,9 @@ class AsyncHttpClient:
             if not part:
                 continue
             try:
-                parsed.add(int(part))
+                value = int(part)
+                if 100 <= value <= 599:
+                    parsed.add(value)
             except ValueError:
                 continue
         return parsed or self._default_retry_statuses
