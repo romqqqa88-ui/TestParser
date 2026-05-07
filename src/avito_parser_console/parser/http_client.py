@@ -101,6 +101,15 @@ class AsyncHttpClient:
     async def _request_with_backend(
         self, url: str, headers: dict[str, str], proxy: str | None, timeout: int
     ) -> tuple[int, str, dict]:
+        if self._http_backend == "auto":
+            try:
+                status_code, response_text, response_headers = await self._request_httpx(url, headers, proxy, timeout)
+                if status_code in self._retry_statuses:
+                    # Fallback to curl_cffi in same attempt for anti-block probing.
+                    return await self._request_curl_cffi(url, headers, proxy, timeout)
+                return status_code, response_text, response_headers
+            except Exception:
+                return await self._request_curl_cffi(url, headers, proxy, timeout)
         if self._http_backend == "curl_cffi":
             return await self._request_curl_cffi(url, headers, proxy, timeout)
         return await self._request_httpx(url, headers, proxy, timeout)
