@@ -1,0 +1,53 @@
+Metadata-Version: 2.4
+Name: avito-parser-console
+Version: 0.1.0
+Summary: Async console parser for Avito real estate with PostgreSQL and Excel export.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: apscheduler>=3.10.4
+Requires-Dist: asyncpg>=0.29.0
+Requires-Dist: beautifulsoup4>=4.12.3
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: loguru>=0.7.2
+Requires-Dist: openpyxl>=3.1.5
+Requires-Dist: pandas>=2.2.2
+Requires-Dist: pydantic>=2.8.2
+Requires-Dist: pydantic-settings>=2.3.4
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: questionary>=2.0.1
+Requires-Dist: rich>=13.7.1
+Requires-Dist: sqlalchemy>=2.0.31
+Provides-Extra: dev
+Requires-Dist: alembic>=1.13.2; extra == "dev"
+Requires-Dist: pytest>=8.2.2; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.8; extra == "dev"
+
+# avito_parser_console
+
+Асинхронный консольный парсер объявлений недвижимости Авито с сохранением в PostgreSQL и экспортом в Excel/CSV/JSON.
+
+## Быстрый старт
+
+1. Установить Python 3.11+.
+2. Создать окружение и установить зависимости:
+   - `pip install -e .[dev]`
+3. Скопировать `.env.example` в `.env` и заполнить параметры.
+4. Запустить PostgreSQL (локально или через Docker Compose).
+5. Выполнить миграции:
+   - `alembic upgrade head`
+6. Запустить приложение:
+   - `avito-parser`
+
+## Docker Compose
+
+- `docker compose up --build`
+
+## Структура
+
+- `src/avito_parser_console/cli` — интерактивное меню
+- `src/avito_parser_console/parser` — загрузка страниц и извлечение данных
+- `src/avito_parser_console/filters` — фильтрация объявлений
+- `src/avito_parser_console/storage` — PostgreSQL и репозитории
+- `src/avito_parser_console/export` — экспорт в Excel/CSV/JSON
+- `src/avito_parser_console/scheduler` — периодический запуск задач
+

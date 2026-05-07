@@ -1,0 +1,14 @@
+[Unit]
+Description=Avito Parser Console Scheduler Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/avito_parser_console
+EnvironmentFile=/opt/avito_parser_console/.env
+ExecStart=/opt/avito_parser_console/.venv/bin/avito-parser
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

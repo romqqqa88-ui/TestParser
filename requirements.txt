@@ -1,0 +1,13 @@
+apscheduler
+asyncpg
+beautifulsoup4
+httpx
+loguru
+openpyxl
+pandas
+pydantic
+pydantic-settings
+python-dotenv
+questionary
+rich
+sqlalchemy

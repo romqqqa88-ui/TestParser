@@ -1,0 +1,2 @@
+[console_scripts]
+avito-parser = avito_parser_console.main:run
