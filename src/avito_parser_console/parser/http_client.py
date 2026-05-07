@@ -16,6 +16,10 @@ class AsyncHttpClient:
         self._default_retry_statuses = {429, 403, 503}
 
     @property
+    def _http_backend(self) -> str:
+        return str(getattr(self.settings, "http_backend", "httpx")).lower().strip()
+
+    @property
     def _retry_statuses(self) -> set[int]:
         raw = getattr(self.settings, "request_retry_statuses", "")
         if not raw:
@@ -68,21 +72,54 @@ class AsyncHttpClient:
             delay += random.uniform(0, jitter_seconds)
         await asyncio.sleep(delay)
 
+    async def _request_httpx(self, url: str, headers: dict[str, str], proxy: str | None, timeout: int) -> tuple[int, str, dict]:
+        async with httpx.AsyncClient(
+            timeout=timeout,
+            proxy=proxy,
+            follow_redirects=True,
+        ) as client:
+            response = await client.get(url, headers=headers)
+        return response.status_code, response.text, dict(response.headers)
+
+    async def _request_curl_cffi(
+        self, url: str, headers: dict[str, str], proxy: str | None, timeout: int
+    ) -> tuple[int, str, dict]:
+        from curl_cffi.requests import AsyncSession
+
+        impersonate = str(getattr(self.settings, "curl_impersonate", "chrome124"))
+        async with AsyncSession() as client:
+            response = await client.get(
+                url,
+                headers=headers,
+                proxy=proxy,
+                timeout=timeout,
+                impersonate=impersonate,
+                allow_redirects=True,
+            )
+        return int(response.status_code), str(response.text), dict(response.headers)
+
+    async def _request_with_backend(
+        self, url: str, headers: dict[str, str], proxy: str | None, timeout: int
+    ) -> tuple[int, str, dict]:
+        if self._http_backend == "curl_cffi":
+            return await self._request_curl_cffi(url, headers, proxy, timeout)
+        return await self._request_httpx(url, headers, proxy, timeout)
+
     async def get(self, url: str) -> str:
         attempts = self.settings.request_retries + 1
         timeout = self.settings.request_timeout
+        rotate_proxy_on_retry = bool(getattr(self.settings, "proxy_rotate_on_retry", True))
+        current_proxy = self.proxy_pool.next() if self.proxy_pool else None
         for attempt in range(attempts):
-            proxy = self.proxy_pool.next() if self.proxy_pool else None
+            if attempt > 0 and rotate_proxy_on_retry and self.proxy_pool:
+                current_proxy = self.proxy_pool.next()
             headers = self._build_headers()
             try:
-                async with httpx.AsyncClient(
-                    timeout=timeout,
-                    proxy=proxy,
-                    follow_redirects=True,
-                ) as client:
-                    response = await client.get(url, headers=headers)
-                if response.status_code in self._retry_statuses and attempt < attempts - 1:
-                    retry_after_value = response.headers.get("Retry-After")
+                status_code, response_text, response_headers = await self._request_with_backend(
+                    url, headers=headers, proxy=current_proxy, timeout=timeout
+                )
+                if status_code in self._retry_statuses and attempt < attempts - 1:
+                    retry_after_value = response_headers.get("Retry-After")
                     retry_after = None
                     if retry_after_value:
                         try:
@@ -91,8 +128,9 @@ class AsyncHttpClient:
                             retry_after = None
                     await self._sleep_before_retry(attempt, retry_after=retry_after)
                     continue
-                response.raise_for_status()
-                return response.text
+                if status_code >= 400:
+                    raise RuntimeError(f"HTTP {status_code}")
+                return response_text
             except Exception:
                 if attempt == attempts - 1:
                     raise

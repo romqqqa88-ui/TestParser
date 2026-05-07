@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     request_jitter_seconds: float = 0.3
     request_max_backoff_seconds: float = 20.0
     request_retry_statuses: str = "429,403,503"
+    http_backend: str = "httpx"
+    curl_impersonate: str = "chrome124"
     max_pages_per_query: int = 5
     max_concurrency: int = 5
     user_agent: str = "Mozilla/5.0"
@@ -27,6 +29,7 @@ class Settings(BaseSettings):
 
     proxy_enabled: bool = False
     proxy_list: str = ""
+    proxy_rotate_on_retry: bool = True
 
     export_dir: str = "exports"
     export_max_rows_per_file: int = 50000

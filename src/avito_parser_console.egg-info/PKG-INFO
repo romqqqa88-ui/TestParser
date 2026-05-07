@@ -7,6 +7,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: apscheduler>=3.10.4
 Requires-Dist: asyncpg>=0.29.0
 Requires-Dist: beautifulsoup4>=4.12.3
+Requires-Dist: curl-cffi>=0.7.1
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: loguru>=0.7.2
 Requires-Dist: openpyxl>=3.1.5
@@ -35,8 +36,21 @@ Requires-Dist: pytest-asyncio>=0.23.8; extra == "dev"
 4. Запустить PostgreSQL (локально или через Docker Compose).
 5. Выполнить миграции:
    - `alembic upgrade head`
+   - если используете async URL в `DATABASE_URL`, задайте sync URL для миграций:
+     - `ALEMBIC_DATABASE_URL=postgresql://postgres:***@localhost:5432/avito_parser`
 6. Запустить приложение:
    - `avito-parser`
+
+## Smoke-тест одной командой
+
+- Windows (PowerShell):
+  - `$env:DATABASE_URL="postgresql+asyncpg://postgres:***@localhost:5432/avito_parser"`
+  - `$env:ALEMBIC_DATABASE_URL="postgresql://postgres:***@localhost:5432/avito_parser"`
+  - `.\scripts\smoke.ps1`
+- Linux/WSL:
+  - `export DATABASE_URL="postgresql+asyncpg://postgres:***@localhost:5432/avito_parser"`
+  - `export ALEMBIC_DATABASE_URL="postgresql://postgres:***@localhost:5432/avito_parser"`
+  - `bash scripts/smoke.sh`
 
 ## Docker Compose
 

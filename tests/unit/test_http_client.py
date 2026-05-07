@@ -58,3 +58,29 @@ async def test_http_client_retries_on_429(monkeypatch):
     response_text = await client.get("https://example.com")
     assert response_text == "ok"
     assert dummy_client.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_http_client_uses_curl_backend(monkeypatch):
+    class DummySettings:
+        request_timeout = 5
+        request_retries = 0
+        request_delay_seconds = 0
+        request_backoff_multiplier = 1.0
+        request_jitter_seconds = 0.0
+        request_max_backoff_seconds = 1.0
+        request_retry_statuses = "429"
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+        http_backend = "curl_cffi"
+        curl_impersonate = "chrome124"
+        proxy_rotate_on_retry = True
+
+    async def fake_request_curl(self, url: str, headers: dict[str, str], proxy: str | None, timeout: int):
+        return 200, "curl_ok", {}
+
+    monkeypatch.setattr(AsyncHttpClient, "_request_curl_cffi", fake_request_curl)
+    client = AsyncHttpClient(DummySettings())
+    response_text = await client.get("https://example.com")
+    assert response_text == "curl_ok"

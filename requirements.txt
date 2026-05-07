@@ -1,6 +1,7 @@
 apscheduler
 asyncpg
 beautifulsoup4
+curl-cffi
 httpx
 loguru
 openpyxl
