@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 
 import httpx
 
@@ -12,24 +13,88 @@ class AsyncHttpClient:
     def __init__(self, settings: Settings, proxy_pool: ProxyPool | None = None):
         self.settings = settings
         self.proxy_pool = proxy_pool
+        self._default_retry_statuses = {429, 403, 503}
+
+    @property
+    def _retry_statuses(self) -> set[int]:
+        raw = getattr(self.settings, "request_retry_statuses", "")
+        if not raw:
+            return self._default_retry_statuses
+        parsed: set[int] = set()
+        for part in raw.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                parsed.add(int(part))
+            except ValueError:
+                continue
+        return parsed or self._default_retry_statuses
+
+    def _build_headers(self) -> dict[str, str]:
+        ua = self.settings.user_agent
+        ua_pool_raw = getattr(self.settings, "user_agent_pool", "")
+        if ua_pool_raw:
+            variants = [x.strip() for x in ua_pool_raw.split(",") if x.strip()]
+            if variants:
+                ua = random.choice(variants)
+        headers = {"User-Agent": ua}
+        if getattr(self.settings, "browser_headers_enabled", True):
+            headers.update(
+                {
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.7,en;q=0.6",
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache",
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "none",
+                    "Sec-Fetch-User": "?1",
+                    "Upgrade-Insecure-Requests": "1",
+                }
+            )
+        return headers
+
+    async def _sleep_before_retry(self, attempt: int, retry_after: float | None = None) -> None:
+        base_delay = float(getattr(self.settings, "request_delay_seconds", 1.0))
+        backoff_multiplier = float(getattr(self.settings, "request_backoff_multiplier", 2.0))
+        jitter_seconds = float(getattr(self.settings, "request_jitter_seconds", 0.3))
+        max_backoff = float(getattr(self.settings, "request_max_backoff_seconds", 20.0))
+        if retry_after is not None and retry_after > 0:
+            delay = retry_after
+        else:
+            delay = min(max_backoff, base_delay * (backoff_multiplier**attempt))
+        if jitter_seconds > 0:
+            delay += random.uniform(0, jitter_seconds)
+        await asyncio.sleep(delay)
 
     async def get(self, url: str) -> str:
-        headers = {"User-Agent": self.settings.user_agent}
         attempts = self.settings.request_retries + 1
+        timeout = self.settings.request_timeout
         for attempt in range(attempts):
             proxy = self.proxy_pool.next() if self.proxy_pool else None
+            headers = self._build_headers()
             try:
                 async with httpx.AsyncClient(
-                    timeout=self.settings.request_timeout,
+                    timeout=timeout,
                     proxy=proxy,
-                    headers=headers,
                     follow_redirects=True,
                 ) as client:
-                    response = await client.get(url)
-                    response.raise_for_status()
-                    return response.text
+                    response = await client.get(url, headers=headers)
+                if response.status_code in self._retry_statuses and attempt < attempts - 1:
+                    retry_after_value = response.headers.get("Retry-After")
+                    retry_after = None
+                    if retry_after_value:
+                        try:
+                            retry_after = float(retry_after_value)
+                        except ValueError:
+                            retry_after = None
+                    await self._sleep_before_retry(attempt, retry_after=retry_after)
+                    continue
+                response.raise_for_status()
+                return response.text
             except Exception:
                 if attempt == attempts - 1:
                     raise
-                await asyncio.sleep(self.settings.request_delay_seconds * (attempt + 1))
+                await self._sleep_before_retry(attempt)
         raise RuntimeError("Unreachable")

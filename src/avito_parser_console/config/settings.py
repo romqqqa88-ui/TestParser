@@ -15,9 +15,15 @@ class Settings(BaseSettings):
     request_timeout: int = 20
     request_retries: int = 3
     request_delay_seconds: float = 1.0
+    request_backoff_multiplier: float = 2.0
+    request_jitter_seconds: float = 0.3
+    request_max_backoff_seconds: float = 20.0
+    request_retry_statuses: str = "429,403,503"
     max_pages_per_query: int = 5
     max_concurrency: int = 5
     user_agent: str = "Mozilla/5.0"
+    user_agent_pool: str = ""
+    browser_headers_enabled: bool = True
 
     proxy_enabled: bool = False
     proxy_list: str = ""
