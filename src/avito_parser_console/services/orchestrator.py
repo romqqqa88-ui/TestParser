@@ -80,6 +80,14 @@ class OrchestratorService:
             return self.excel.export(rows, self.settings.export_dir, query_tag="errors")
         return self.csv.export(rows, self.settings.export_dir, query_tag="errors")
 
+    def export_query_stats(self, result: ParseRunResult, fmt: str = "csv") -> str:
+        rows = [{"query_url": query_url, **stats} for query_url, stats in result.stats.query_stats.items()]
+        if fmt == "json":
+            return self.json.export(rows, self.settings.export_dir, query_tag="query_stats")
+        if fmt == "xlsx":
+            return self.excel.export(rows, self.settings.export_dir, query_tag="query_stats")
+        return self.csv.export(rows, self.settings.export_dir, query_tag="query_stats")
+
     def export_run_report(self, result: ParseRunResult) -> str:
         report = {
             "generated_at": datetime.now(timezone.utc).isoformat(),

@@ -61,6 +61,13 @@ class CliApp:
                 if export_run_report:
                     report_path = self.orchestrator.export_run_report(self.last_result)
                     self.console.print(f"[green]Run report:[/green] {report_path}")
+                export_query_stats = questionary.confirm(
+                    "Экспортировать per-query статистику?",
+                    default=False,
+                ).ask()
+                if export_query_stats:
+                    query_stats_path = self.orchestrator.export_query_stats(self.last_result, fmt="csv")
+                    self.console.print(f"[green]Query stats report:[/green] {query_stats_path}")
                 if self.last_result.error_records:
                     export_errors = questionary.confirm(
                         f"Экспортировать отчёт ошибок ({len(self.last_result.error_records)} шт.)?",

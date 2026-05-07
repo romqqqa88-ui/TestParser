@@ -35,3 +35,25 @@ def test_export_errors_creates_csv(tmp_path):
     )
     path = service.export_errors(result, fmt="csv")
     assert path.endswith(".csv")
+
+
+def test_export_query_stats_creates_csv(tmp_path):
+    settings = Settings(export_dir=str(tmp_path))
+    service = OrchestratorService(settings)
+    result = ParseRunResult(
+        stats=RunStats(
+            query_stats={
+                "https://www.avito.ru/a": {
+                    "processed_pages": 1,
+                    "found_listings": 2,
+                    "duplicate_dropped": 0,
+                    "passed_listings": 2,
+                    "filtered_out": 0,
+                    "capped_out": 0,
+                    "errors": 0,
+                }
+            }
+        )
+    )
+    path = service.export_query_stats(result, fmt="csv")
+    assert path.endswith(".csv")
