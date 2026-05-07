@@ -47,6 +47,7 @@ class FilterConfig(BaseModel):
     exclude_reserved: bool = True
     exclude_promoted: bool = True
     seller_blacklist: list[str] = Field(default_factory=list)
+    max_results_per_query: int | None = None
     logic_mode: LogicMode = LogicMode.AND
 
 

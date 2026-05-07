@@ -33,6 +33,7 @@ def collect_run_request() -> ParseRunRequest:
     page_limit = _ask_int("Макс страниц на запрос:", default="3", min_value=1)
     min_price = _ask_optional_int("Мин цена (пусто = нет):", default="")
     max_price = _ask_optional_int("Макс цена (пусто = нет):", default="")
+    max_results_per_query = _ask_optional_int("Лимит объявлений на URL после фильтров (пусто = нет):", default="")
 
     return ParseRunRequest(
         search=SearchConfig(
@@ -42,5 +43,6 @@ def collect_run_request() -> ParseRunRequest:
         filters=FilterConfig(
             min_price=min_price,
             max_price=max_price,
+            max_results_per_query=max_results_per_query,
         ),
     )

@@ -33,6 +33,7 @@ async def test_parser_runner_handles_empty(monkeypatch):
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["processed_pages"] == 1
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["passed_listings"] == 0
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["filtered_out"] == 0
+    assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["capped_out"] == 0
 
 
 def test_extractor_parses_wrapped_json_payload():
@@ -88,6 +89,7 @@ async def test_parser_runner_collects_filtered_records(monkeypatch):
     assert result.filtered_out_summary["PriceRule"] == 1
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["passed_listings"] == 0
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["filtered_out"] == 1
+    assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["capped_out"] == 0
 
 
 @pytest.mark.asyncio
@@ -123,3 +125,39 @@ async def test_parser_runner_collects_query_level_errors(monkeypatch):
     assert result.stats.query_stats["https://www.avito.ru/bad"]["errors"] == 1
     assert result.stats.query_stats["https://www.avito.ru/good"]["passed_listings"] == 0
     assert result.stats.query_stats["https://www.avito.ru/good"]["filtered_out"] == 0
+    assert result.stats.query_stats["https://www.avito.ru/good"]["capped_out"] == 0
+
+
+@pytest.mark.asyncio
+async def test_parser_runner_applies_per_query_result_limit(monkeypatch):
+    class DummySettings:
+        proxy_enabled = False
+        proxy_list = ""
+        request_timeout = 5
+        request_retries = 0
+        request_delay_seconds = 0
+        max_pages_per_query = 1
+        max_concurrency = 1
+        user_agent = "ua"
+
+    service = ParserRunnerService(DummySettings())
+
+    async def fake_get(url: str) -> str:
+        return (
+            '<script type="mime/invalid">{"items":['
+            '{"id":"a1","url":"https://www.avito.ru/a1","title":"a1","price":1000},'
+            '{"id":"a2","url":"https://www.avito.ru/a2","title":"a2","price":1200}'
+            ']}</script>'
+        )
+
+    monkeypatch.setattr(service.http_client, "get", fake_get)
+    request = ParseRunRequest(
+        search=SearchConfig(query_urls=["https://www.avito.ru/moskva/kvartiry"], max_pages_per_query=1),
+        filters=FilterConfig(max_results_per_query=1),
+    )
+    result = await service.run(request)
+    stats = result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]
+    assert stats["passed_listings"] == 1
+    assert stats["capped_out"] == 1
+    assert stats["filtered_out"] == 1
+    assert result.filtered_out_summary["QueryLimitRule"] == 1

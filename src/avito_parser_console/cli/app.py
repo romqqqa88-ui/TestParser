@@ -36,7 +36,7 @@ class CliApp:
                         self.console.print(
                             f"[blue]{query_url}[/blue] pages={values['processed_pages']} "
                             f"found={values['found_listings']} passed={values['passed_listings']} "
-                            f"filtered={values['filtered_out']} errors={values['errors']}"
+                            f"filtered={values['filtered_out']} capped={values['capped_out']} errors={values['errors']}"
                         )
                 if self.last_result.filtered_out_records:
                     if self.last_result.filtered_out_summary:

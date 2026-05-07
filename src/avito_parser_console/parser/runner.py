@@ -23,7 +23,14 @@ class ParserRunnerService:
         collected: list[tuple[str, Listing]] = []
         sem = asyncio.Semaphore(self.settings.max_concurrency)
         query_stats: dict[str, dict[str, int]] = {
-            str(url): {"processed_pages": 0, "found_listings": 0, "passed_listings": 0, "filtered_out": 0, "errors": 0}
+            str(url): {
+                "processed_pages": 0,
+                "found_listings": 0,
+                "passed_listings": 0,
+                "filtered_out": 0,
+                "capped_out": 0,
+                "errors": 0,
+            }
             for url in request.search.query_urls
         }
 
@@ -56,11 +63,11 @@ class ParserRunnerService:
         filtered = []
         filtered_records = []
         filtered_summary: dict[str, int] = {}
+        passed_candidates_by_query: dict[str, list[Listing]] = {str(url): [] for url in request.search.query_urls}
         for query_url, listing in collected:
             ok, failed = self.filter_engine.evaluate(listing, request.filters)
             if ok:
-                query_stats[query_url]["passed_listings"] += 1
-                filtered.append(listing)
+                passed_candidates_by_query[query_url].append(listing)
             else:
                 query_stats[query_url]["filtered_out"] += 1
                 for reason in failed:
@@ -74,6 +81,32 @@ class ParserRunnerService:
                         "reasons": failed,
                     }
                 )
+
+        # Apply optional per-query top-N cap after filter rules.
+        limit = request.filters.max_results_per_query
+        for query_url, listings in passed_candidates_by_query.items():
+            if limit is None or limit <= 0:
+                filtered.extend(listings)
+                query_stats[query_url]["passed_listings"] = len(listings)
+                continue
+            accepted = listings[:limit]
+            dropped = listings[limit:]
+            filtered.extend(accepted)
+            query_stats[query_url]["passed_listings"] = len(accepted)
+            query_stats[query_url]["capped_out"] = len(dropped)
+            query_stats[query_url]["filtered_out"] += len(dropped)
+            for listing in dropped:
+                filtered_records.append(
+                    {
+                        "query_url": query_url,
+                        "listing_id": listing.listing_id,
+                        "url": str(listing.url),
+                        "title": listing.title,
+                        "reasons": ["QueryLimitRule"],
+                    }
+                )
+            if dropped:
+                filtered_summary["QueryLimitRule"] = filtered_summary.get("QueryLimitRule", 0) + len(dropped)
         stats.filtered_out = len(filtered_records)
         stats.query_stats = query_stats
         return ParseRunResult(
