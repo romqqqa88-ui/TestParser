@@ -32,6 +32,19 @@ class CliApp:
                         f"[green]Готово.[/green] Найдено: {self.last_result.stats.found_listings}, "
                         f"Сохранено: {self.last_result.stats.saved_listings}, Ошибок: {self.last_result.stats.errors}"
                     )
+                    for query_url, values in self.last_result.stats.query_stats.items():
+                        self.console.print(
+                            f"[blue]{query_url}[/blue] pages={values['processed_pages']} "
+                            f"found={values['found_listings']} errors={values['errors']}"
+                        )
+                if self.last_result.filtered_out_records:
+                    export_filtered = questionary.confirm(
+                        f"Экспортировать отчёт filtered_out ({len(self.last_result.filtered_out_records)} шт.)?",
+                        default=False,
+                    ).ask()
+                    if export_filtered:
+                        filtered_path = self.orchestrator.export_filtered_out(self.last_result, fmt="csv")
+                        self.console.print(f"[green]Filtered отчёт:[/green] {filtered_path}")
             elif action == "Экспорт":
                 fmt = (
                     questionary.select("Формат экспорта", choices=["xlsx", "csv", "json"], default="xlsx").ask()

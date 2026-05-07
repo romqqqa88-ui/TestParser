@@ -51,6 +51,14 @@ class OrchestratorService:
         }
         return self.excel.export(rows, self.settings.export_dir, header_map=header_map)
 
+    def export_filtered_out(self, result: ParseRunResult, fmt: str = "csv") -> str:
+        rows = result.filtered_out_records
+        if fmt == "json":
+            return self.json.export(rows, self.settings.export_dir, query_tag="filtered_out")
+        if fmt == "xlsx":
+            return self.excel.export(rows, self.settings.export_dir, query_tag="filtered_out")
+        return self.csv.export(rows, self.settings.export_dir, query_tag="filtered_out")
+
     @staticmethod
     def _db_row_to_dict(row: object) -> dict:
         return {k: v for k, v in row.__dict__.items() if not k.startswith("_")}

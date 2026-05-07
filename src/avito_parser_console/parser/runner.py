@@ -22,26 +22,37 @@ class ParserRunnerService:
         stats = RunStats()
         all_listings = []
         sem = asyncio.Semaphore(self.settings.max_concurrency)
+        query_stats: dict[str, dict[str, int]] = {
+            str(url): {"processed_pages": 0, "found_listings": 0, "errors": 0} for url in request.search.query_urls
+        }
 
-        async def process_page(url: str) -> None:
+        async def process_page(query_url: str, page_url: str) -> None:
             async with sem:
-                html = await self.http_client.get(url)
-                listings = self.extractor.extract(html)
-                stats.processed_pages += 1
-                stats.found_listings += len(listings)
-                all_listings.extend(listings)
+                try:
+                    html = await self.http_client.get(page_url)
+                    listings = self.extractor.extract(html)
+                    stats.processed_pages += 1
+                    stats.found_listings += len(listings)
+                    query_stats[query_url]["processed_pages"] += 1
+                    query_stats[query_url]["found_listings"] += len(listings)
+                    all_listings.extend(listings)
+                except Exception:
+                    query_stats[query_url]["errors"] += 1
+                    raise
 
         tasks = []
         for base_url in request.search.query_urls:
+            query_url = str(base_url)
             for page in range(1, request.search.max_pages_per_query + 1):
-                sep = "&" if "?" in str(base_url) else "?"
-                tasks.append(process_page(f"{base_url}{sep}p={page}"))
+                sep = "&" if "?" in query_url else "?"
+                tasks.append(process_page(query_url, f"{query_url}{sep}p={page}"))
         for task in asyncio.as_completed(tasks):
             try:
                 await task
             except Exception:
                 stats.errors += 1
 
-        filtered, filtered_count = self.filter_engine.apply(all_listings, request.filters)
-        stats.filtered_out = filtered_count
-        return ParseRunResult(stats=stats, listings=filtered)
+        filtered, filtered_records = self.filter_engine.apply_with_report(all_listings, request.filters)
+        stats.filtered_out = len(filtered_records)
+        stats.query_stats = query_stats
+        return ParseRunResult(stats=stats, listings=filtered, filtered_out_records=filtered_records)

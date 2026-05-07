@@ -10,13 +10,25 @@ class RuleEngine:
         self.rules = rules or [PriceRule(), KeywordRule(), GeoRule(), AgeRule(), FlagsRule()]
 
     def apply(self, listings: list[Listing], config: FilterConfig) -> tuple[list[Listing], int]:
+        passed, filtered_records = self.apply_with_report(listings, config)
+        return passed, len(filtered_records)
+
+    def apply_with_report(self, listings: list[Listing], config: FilterConfig) -> tuple[list[Listing], list[dict]]:
         passed: list[Listing] = []
-        filtered_out = 0
+        filtered_records: list[dict] = []
         for listing in listings:
             checks = [rule.check(listing, config) for rule in self.rules]
             ok = all(checks) if config.logic_mode == LogicMode.AND else any(checks)
             if ok:
                 passed.append(listing)
             else:
-                filtered_out += 1
-        return passed, filtered_out
+                failed = [rule.__class__.__name__ for rule, check in zip(self.rules, checks, strict=False) if not check]
+                filtered_records.append(
+                    {
+                        "listing_id": listing.listing_id,
+                        "url": str(listing.url),
+                        "title": listing.title,
+                        "reasons": failed,
+                    }
+                )
+        return passed, filtered_records
