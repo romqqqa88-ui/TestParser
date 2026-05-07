@@ -112,6 +112,8 @@ class AsyncHttpClient:
 
     def _parse_retry_after(self, retry_after_value: str | None, now: datetime | None = None) -> float | None:
         max_retry_after = float(getattr(self.settings, "request_retry_after_max_seconds", 120.0))
+        if max_retry_after <= 0:
+            max_retry_after = 120.0
 
         def _cap(value: float) -> float:
             return min(max(0.0, value), max_retry_after)
