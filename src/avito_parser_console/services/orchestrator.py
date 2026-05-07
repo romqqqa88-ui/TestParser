@@ -72,11 +72,20 @@ class OrchestratorService:
             return self.excel.export(rows, self.settings.export_dir, query_tag="filtered_summary")
         return self.csv.export(rows, self.settings.export_dir, query_tag="filtered_summary")
 
+    def export_errors(self, result: ParseRunResult, fmt: str = "csv") -> str:
+        rows = result.error_records
+        if fmt == "json":
+            return self.json.export(rows, self.settings.export_dir, query_tag="errors")
+        if fmt == "xlsx":
+            return self.excel.export(rows, self.settings.export_dir, query_tag="errors")
+        return self.csv.export(rows, self.settings.export_dir, query_tag="errors")
+
     def export_run_report(self, result: ParseRunResult) -> str:
         report = {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "run_id": result.run_id,
             "stats": result.stats.model_dump(),
+            "errors_count": len(result.error_records),
             "filtered_out_summary": result.filtered_out_summary,
             "filtered_out_count": len(result.filtered_out_records),
             "listings_count": len(result.listings),

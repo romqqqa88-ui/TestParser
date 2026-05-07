@@ -123,6 +123,8 @@ async def test_parser_runner_collects_query_level_errors(monkeypatch):
     )
     result = await service.run(request)
     assert result.stats.errors == 1
+    assert len(result.error_records) == 1
+    assert result.error_records[0]["query_url"] == "https://www.avito.ru/bad"
     assert result.stats.query_stats["https://www.avito.ru/good"]["errors"] == 0
     assert result.stats.query_stats["https://www.avito.ru/bad"]["errors"] == 1
     assert result.stats.query_stats["https://www.avito.ru/good"]["passed_listings"] == 0

@@ -21,6 +21,7 @@ class ParserRunnerService:
     async def run(self, request: ParseRunRequest) -> ParseRunResult:
         stats = RunStats()
         collected: list[tuple[str, Listing]] = []
+        error_records: list[dict[str, str]] = []
         sem = asyncio.Semaphore(self.settings.max_concurrency)
         query_stats: dict[str, dict[str, int]] = {
             str(url): {
@@ -47,6 +48,13 @@ class ParserRunnerService:
                     collected.extend((query_url, listing) for listing in listings)
                 except Exception:
                     query_stats[query_url]["errors"] += 1
+                    error_records.append(
+                        {
+                            "query_url": query_url,
+                            "page_url": page_url,
+                            "error": "request_or_parse_failed",
+                        }
+                    )
                     raise
 
         tasks = []
@@ -124,6 +132,7 @@ class ParserRunnerService:
         return ParseRunResult(
             stats=stats,
             listings=filtered,
+            error_records=error_records,
             filtered_out_records=filtered_records,
             filtered_out_summary=filtered_summary,
         )

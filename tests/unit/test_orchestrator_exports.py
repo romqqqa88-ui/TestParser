@@ -24,3 +24,14 @@ def test_export_run_report_creates_json(tmp_path):
     )
     path = service.export_run_report(result)
     assert path.endswith(".json")
+
+
+def test_export_errors_creates_csv(tmp_path):
+    settings = Settings(export_dir=str(tmp_path))
+    service = OrchestratorService(settings)
+    result = ParseRunResult(
+        stats=RunStats(),
+        error_records=[{"query_url": "u", "page_url": "p", "error": "e"}],
+    )
+    path = service.export_errors(result, fmt="csv")
+    assert path.endswith(".csv")

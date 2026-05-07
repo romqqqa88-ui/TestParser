@@ -61,6 +61,14 @@ class CliApp:
                 if export_run_report:
                     report_path = self.orchestrator.export_run_report(self.last_result)
                     self.console.print(f"[green]Run report:[/green] {report_path}")
+                if self.last_result.error_records:
+                    export_errors = questionary.confirm(
+                        f"Экспортировать отчёт ошибок ({len(self.last_result.error_records)} шт.)?",
+                        default=True,
+                    ).ask()
+                    if export_errors:
+                        errors_path = self.orchestrator.export_errors(self.last_result, fmt="csv")
+                        self.console.print(f"[green]Errors report:[/green] {errors_path}")
             elif action == "Экспорт":
                 fmt = (
                     questionary.select("Формат экспорта", choices=["xlsx", "csv", "json"], default="xlsx").ask()

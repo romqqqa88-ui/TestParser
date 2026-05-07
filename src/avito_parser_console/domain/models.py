@@ -75,5 +75,6 @@ class ParseRunResult(BaseModel):
     run_id: int | None = None
     stats: RunStats
     listings: list[Listing] = Field(default_factory=list)
+    error_records: list[dict[str, Any]] = Field(default_factory=list)
     filtered_out_records: list[dict[str, Any]] = Field(default_factory=list)
     filtered_out_summary: dict[str, int] = Field(default_factory=dict)
