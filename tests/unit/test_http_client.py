@@ -365,3 +365,23 @@ def test_compute_request_timeout_respects_minimum():
 
     client = AsyncHttpClient(DummySettings())
     assert client._compute_request_timeout(0) == 1.0
+
+
+def test_auto_backend_order_removes_duplicates():
+    class DummySettings:
+        request_timeout = 10
+        request_timeout_backoff_multiplier = 1.0
+        request_timeout_max_seconds = 10
+        request_retries = 0
+        request_delay_seconds = 1.0
+        request_min_retry_delay_seconds = 0.1
+        request_backoff_multiplier = 2.0
+        request_jitter_seconds = 0.0
+        request_retry_statuses = "429"
+        http_backend_auto_order = "httpx,curl_cffi,httpx,curl_cffi"
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+
+    client = AsyncHttpClient(DummySettings())
+    assert client._auto_backend_order == ["httpx", "curl_cffi"]

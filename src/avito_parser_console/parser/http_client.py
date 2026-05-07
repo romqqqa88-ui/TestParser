@@ -48,7 +48,10 @@ class AsyncHttpClient:
         raw = str(getattr(self.settings, "http_backend_auto_order", "httpx,curl_cffi"))
         parsed = [item.strip().lower() for item in raw.split(",") if item.strip()]
         allowed = {"httpx", "curl_cffi"}
-        order = [item for item in parsed if item in allowed]
+        order: list[str] = []
+        for item in parsed:
+            if item in allowed and item not in order:
+                order.append(item)
         return order or ["httpx", "curl_cffi"]
 
     def _build_headers(self) -> dict[str, str]:
