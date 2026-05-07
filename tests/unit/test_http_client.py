@@ -447,3 +447,23 @@ def test_parse_retry_after_rejects_non_finite_numeric():
     client = AsyncHttpClient(DummySettings())
     assert client._parse_retry_after("NaN") is None
     assert client._parse_retry_after("inf") is None
+
+
+def test_parse_retry_after_accepts_quoted_numeric():
+    class DummySettings:
+        request_timeout = 10
+        request_timeout_backoff_multiplier = 1.0
+        request_timeout_max_seconds = 10
+        request_retries = 0
+        request_delay_seconds = 1.0
+        request_min_retry_delay_seconds = 0.1
+        request_backoff_multiplier = 2.0
+        request_jitter_seconds = 0.0
+        request_retry_after_max_seconds = 120.0
+        request_retry_statuses = "429"
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+
+    client = AsyncHttpClient(DummySettings())
+    assert client._parse_retry_after('"7"') == 7.0
