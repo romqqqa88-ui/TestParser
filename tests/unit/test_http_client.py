@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime, timezone
 
 from avito_parser_console.parser.http_client import AsyncHttpClient
 
@@ -150,3 +151,40 @@ async def test_http_client_auto_backend_respects_order(monkeypatch):
     response_text = await client.get("https://example.com")
     assert response_text == "httpx_ok"
     assert calls == ["curl_cffi", "httpx"]
+
+
+def test_parse_retry_after_http_date():
+    class DummySettings:
+        request_timeout = 5
+        request_retries = 0
+        request_delay_seconds = 0
+        request_backoff_multiplier = 1.0
+        request_jitter_seconds = 0.0
+        request_max_backoff_seconds = 1.0
+        request_retry_statuses = "429"
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+
+    client = AsyncHttpClient(DummySettings())
+    now = datetime(2026, 5, 7, 19, 45, 0, tzinfo=timezone.utc)
+    delay = client._parse_retry_after("Thu, 07 May 2026 19:45:05 GMT", now=now)
+    assert delay == 5.0
+
+
+def test_parse_retry_after_invalid_value():
+    class DummySettings:
+        request_timeout = 5
+        request_retries = 0
+        request_delay_seconds = 0
+        request_backoff_multiplier = 1.0
+        request_jitter_seconds = 0.0
+        request_max_backoff_seconds = 1.0
+        request_retry_statuses = "429"
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+
+    client = AsyncHttpClient(DummySettings())
+    delay = client._parse_retry_after("not-a-valid-retry-after")
+    assert delay is None

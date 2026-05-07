@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import random
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 import httpx
 
@@ -80,6 +82,27 @@ class AsyncHttpClient:
             delay += random.uniform(0, jitter_seconds)
         await asyncio.sleep(delay)
 
+    def _parse_retry_after(self, retry_after_value: str | None, now: datetime | None = None) -> float | None:
+        if not retry_after_value:
+            return None
+        value = retry_after_value.strip()
+        if not value:
+            return None
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        try:
+            retry_dt = parsedate_to_datetime(value)
+        except (TypeError, ValueError, IndexError, OverflowError):
+            return None
+        if retry_dt.tzinfo is None:
+            retry_dt = retry_dt.replace(tzinfo=timezone.utc)
+        ref = now or datetime.now(timezone.utc)
+        if ref.tzinfo is None:
+            ref = ref.replace(tzinfo=timezone.utc)
+        return max(0.0, (retry_dt - ref).total_seconds())
+
     async def _request_httpx(self, url: str, headers: dict[str, str], proxy: str | None, timeout: int) -> tuple[int, str, dict]:
         async with httpx.AsyncClient(
             timeout=timeout,
@@ -150,12 +173,7 @@ class AsyncHttpClient:
                 )
                 if status_code in self._retry_statuses and attempt < attempts - 1:
                     retry_after_value = response_headers.get("Retry-After")
-                    retry_after = None
-                    if retry_after_value:
-                        try:
-                            retry_after = float(retry_after_value)
-                        except ValueError:
-                            retry_after = None
+                    retry_after = self._parse_retry_after(retry_after_value)
                     await self._sleep_before_retry(attempt, retry_after=retry_after)
                     continue
                 if status_code >= 400:
