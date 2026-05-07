@@ -11,6 +11,10 @@ from avito_parser_console.config.settings import Settings
 from avito_parser_console.parser.proxy_pool import ProxyPool
 
 
+class _HttpStatusError(RuntimeError):
+    pass
+
+
 class AsyncHttpClient:
     def __init__(self, settings: Settings, proxy_pool: ProxyPool | None = None):
         self.settings = settings
@@ -175,6 +179,7 @@ class AsyncHttpClient:
         attempts = self.settings.request_retries + 1
         timeout = self.settings.request_timeout
         rotate_proxy_on_retry = bool(getattr(self.settings, "proxy_rotate_on_retry", True))
+        retry_on_statuses = bool(getattr(self.settings, "request_retry_on_statuses", True))
         retry_on_exceptions = bool(getattr(self.settings, "request_retry_on_exceptions", True))
         current_proxy = self.proxy_pool.next() if self.proxy_pool else None
         for attempt in range(attempts):
@@ -185,14 +190,16 @@ class AsyncHttpClient:
                 status_code, response_text, response_headers = await self._request_with_backend(
                     url, headers=headers, proxy=current_proxy, timeout=timeout
                 )
-                if status_code in self._retry_statuses and attempt < attempts - 1:
+                if retry_on_statuses and status_code in self._retry_statuses and attempt < attempts - 1:
                     retry_after_value = response_headers.get("Retry-After")
                     retry_after = self._parse_retry_after(retry_after_value)
                     await self._sleep_before_retry(attempt, retry_after=retry_after)
                     continue
                 if status_code >= 400:
-                    raise RuntimeError(f"HTTP {status_code}")
+                    raise _HttpStatusError(f"HTTP {status_code}")
                 return response_text
+            except _HttpStatusError:
+                raise
             except Exception:
                 if attempt == attempts - 1 or not retry_on_exceptions:
                     raise

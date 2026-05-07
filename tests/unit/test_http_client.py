@@ -116,6 +116,35 @@ async def test_http_client_does_not_retry_on_exception_when_disabled(monkeypatch
 
 
 @pytest.mark.asyncio
+async def test_http_client_does_not_retry_on_status_when_disabled(monkeypatch):
+    class DummySettings:
+        request_timeout = 5
+        request_retries = 2
+        request_delay_seconds = 0
+        request_backoff_multiplier = 1.0
+        request_jitter_seconds = 0.0
+        request_max_backoff_seconds = 1.0
+        request_retry_statuses = "429"
+        request_retry_on_statuses = False
+        request_retry_on_exceptions = True
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+
+    calls = {"count": 0}
+
+    async def fake_request_httpx(self, url: str, headers: dict[str, str], proxy: str | None, timeout: int):
+        calls["count"] += 1
+        return 429, "blocked", {}
+
+    monkeypatch.setattr(AsyncHttpClient, "_request_httpx", fake_request_httpx)
+    client = AsyncHttpClient(DummySettings())
+    with pytest.raises(RuntimeError, match="HTTP 429"):
+        await client.get("https://example.com")
+    assert calls["count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_http_client_auto_backend_falls_back_to_curl(monkeypatch):
     class DummySettings:
         request_timeout = 5
