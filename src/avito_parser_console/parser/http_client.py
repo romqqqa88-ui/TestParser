@@ -98,12 +98,14 @@ class AsyncHttpClient:
 
     def _compute_request_timeout(self, attempt: int) -> float:
         base_timeout = float(getattr(self.settings, "request_timeout", 20))
+        timeout_min = float(getattr(self.settings, "request_timeout_min_seconds", 1.0))
         timeout_multiplier = float(getattr(self.settings, "request_timeout_backoff_multiplier", 1.0))
         timeout_max = float(getattr(self.settings, "request_timeout_max_seconds", base_timeout))
         if timeout_multiplier <= 0:
             timeout_multiplier = 1.0
         timeout_value = base_timeout * (timeout_multiplier**attempt)
-        return min(timeout_max, timeout_value)
+        timeout_value = min(timeout_max, timeout_value)
+        return max(timeout_min, timeout_value)
 
     def _parse_retry_after(self, retry_after_value: str | None, now: datetime | None = None) -> float | None:
         max_retry_after = float(getattr(self.settings, "request_retry_after_max_seconds", 120.0))
