@@ -104,6 +104,8 @@ class AsyncHttpClient:
         timeout_min = float(getattr(self.settings, "request_timeout_min_seconds", 1.0))
         timeout_multiplier = float(getattr(self.settings, "request_timeout_backoff_multiplier", 1.0))
         timeout_max = float(getattr(self.settings, "request_timeout_max_seconds", base_timeout))
+        if timeout_max < timeout_min:
+            timeout_max = timeout_min
         if timeout_multiplier <= 0:
             timeout_multiplier = 1.0
         timeout_value = base_timeout * (timeout_multiplier**attempt)

@@ -406,3 +406,23 @@ def test_parse_retry_after_uses_default_cap_when_config_invalid():
     client = AsyncHttpClient(DummySettings())
     delay = client._parse_retry_after("999")
     assert delay == 120.0
+
+
+def test_compute_request_timeout_handles_max_below_min():
+    class DummySettings:
+        request_timeout = 10
+        request_timeout_min_seconds = 2.0
+        request_timeout_backoff_multiplier = 1.0
+        request_timeout_max_seconds = 1.0
+        request_retries = 0
+        request_delay_seconds = 1.0
+        request_min_retry_delay_seconds = 0.1
+        request_backoff_multiplier = 2.0
+        request_jitter_seconds = 0.0
+        request_retry_statuses = "429"
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+
+    client = AsyncHttpClient(DummySettings())
+    assert client._compute_request_timeout(0) == 2.0
