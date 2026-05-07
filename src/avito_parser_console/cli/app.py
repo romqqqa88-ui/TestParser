@@ -35,7 +35,8 @@ class CliApp:
                     for query_url, values in self.last_result.stats.query_stats.items():
                         self.console.print(
                             f"[blue]{query_url}[/blue] pages={values['processed_pages']} "
-                            f"found={values['found_listings']} errors={values['errors']}"
+                            f"found={values['found_listings']} passed={values['passed_listings']} "
+                            f"filtered={values['filtered_out']} errors={values['errors']}"
                         )
                 if self.last_result.filtered_out_records:
                     export_filtered = questionary.confirm(

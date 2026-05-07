@@ -13,16 +13,20 @@ class RuleEngine:
         passed, filtered_records = self.apply_with_report(listings, config)
         return passed, len(filtered_records)
 
+    def evaluate(self, listing: Listing, config: FilterConfig) -> tuple[bool, list[str]]:
+        checks = [rule.check(listing, config) for rule in self.rules]
+        ok = all(checks) if config.logic_mode == LogicMode.AND else any(checks)
+        failed = [rule.__class__.__name__ for rule, check in zip(self.rules, checks, strict=False) if not check]
+        return ok, failed
+
     def apply_with_report(self, listings: list[Listing], config: FilterConfig) -> tuple[list[Listing], list[dict]]:
         passed: list[Listing] = []
         filtered_records: list[dict] = []
         for listing in listings:
-            checks = [rule.check(listing, config) for rule in self.rules]
-            ok = all(checks) if config.logic_mode == LogicMode.AND else any(checks)
+            ok, failed = self.evaluate(listing, config)
             if ok:
                 passed.append(listing)
             else:
-                failed = [rule.__class__.__name__ for rule, check in zip(self.rules, checks, strict=False) if not check]
                 filtered_records.append(
                     {
                         "listing_id": listing.listing_id,
