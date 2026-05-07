@@ -467,3 +467,31 @@ def test_parse_retry_after_accepts_quoted_numeric():
 
     client = AsyncHttpClient(DummySettings())
     assert client._parse_retry_after('"7"') == 7.0
+
+
+def test_build_headers_adds_cookie_when_configured():
+    class DummySettings:
+        request_timeout = 10
+        request_retries = 0
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+        request_cookie = "sessionid=abc; u=1"
+
+    client = AsyncHttpClient(DummySettings())
+    h = client._build_headers("https://www.avito.ru/moskva/kvartiry")
+    assert h["Cookie"] == "sessionid=abc; u=1"
+
+
+def test_build_headers_sets_avito_referer():
+    class DummySettings:
+        request_timeout = 10
+        request_retries = 0
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+
+    client = AsyncHttpClient(DummySettings())
+    h = client._build_headers("https://www.avito.ru/moskva/kvartiry")
+    assert h["Referer"] == "https://www.avito.ru/"
+    assert h["Sec-Fetch-Site"] == "same-origin"

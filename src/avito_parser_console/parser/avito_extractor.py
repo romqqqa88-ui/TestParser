@@ -40,6 +40,23 @@ class AvitoExtractor:
                 parsed = self._to_listing(item)
                 if parsed:
                     listings.append(parsed)
+        if not listings:
+            for script in soup.find_all("script"):
+                text = script.text.strip()
+                if len(text) < 50 or "items" not in text:
+                    continue
+                payload = self._parse_payload(text)
+                if payload is None:
+                    continue
+                candidates = payload.get("items") if isinstance(payload, dict) else None
+                if not isinstance(candidates, list):
+                    continue
+                for item in candidates:
+                    parsed = self._to_listing(item)
+                    if parsed:
+                        listings.append(parsed)
+                if listings:
+                    break
         return listings
 
     def _parse_payload(self, text: str) -> dict[str, Any] | None:

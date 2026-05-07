@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 
+from typing import Any
+
 from avito_parser_console.config.settings import Settings
 from avito_parser_console.domain.models import Listing, ParseRunRequest, ParseRunResult, RunStats
 from avito_parser_console.filters.engine import RuleEngine
@@ -21,7 +23,7 @@ class ParserRunnerService:
     async def run(self, request: ParseRunRequest) -> ParseRunResult:
         stats = RunStats()
         collected: list[tuple[str, Listing]] = []
-        error_records: list[dict[str, str]] = []
+        error_records: list[dict[str, Any]] = []
         sem = asyncio.Semaphore(self.settings.max_concurrency)
         query_stats: dict[str, dict[str, int]] = {
             str(url): {
@@ -46,13 +48,15 @@ class ParserRunnerService:
                     query_stats[query_url]["processed_pages"] += 1
                     query_stats[query_url]["found_listings"] += len(listings)
                     collected.extend((query_url, listing) for listing in listings)
-                except Exception:
+                except Exception as exc:
                     query_stats[query_url]["errors"] += 1
+                    detail = f"{type(exc).__name__}: {exc}"
                     error_records.append(
                         {
                             "query_url": query_url,
                             "page_url": page_url,
                             "error": "request_or_parse_failed",
+                            "detail": detail[:500],
                         }
                     )
                     raise

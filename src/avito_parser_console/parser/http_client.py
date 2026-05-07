@@ -55,7 +55,7 @@ class AsyncHttpClient:
                 order.append(item)
         return order or ["httpx", "curl_cffi"]
 
-    def _build_headers(self) -> dict[str, str]:
+    def _build_headers(self, request_url: str | None = None) -> dict[str, str]:
         ua = self.settings.user_agent
         ua_pool_raw = getattr(self.settings, "user_agent_pool", "")
         if ua_pool_raw:
@@ -63,7 +63,15 @@ class AsyncHttpClient:
             if variants:
                 ua = random.choice(variants)
         headers = {"User-Agent": ua}
+        cookie = str(getattr(self.settings, "request_cookie", "") or "").strip()
+        if cookie:
+            headers["Cookie"] = cookie
         if getattr(self.settings, "browser_headers_enabled", True):
+            sec_fetch_site = "none"
+            if request_url and "avito.ru" in request_url.lower():
+                # Closer to in-site navigation; helps some anti-bot paths vs cold requests.
+                headers["Referer"] = "https://www.avito.ru/"
+                sec_fetch_site = "same-origin"
             headers.update(
                 {
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -72,7 +80,7 @@ class AsyncHttpClient:
                     "Pragma": "no-cache",
                     "Sec-Fetch-Dest": "document",
                     "Sec-Fetch-Mode": "navigate",
-                    "Sec-Fetch-Site": "none",
+                    "Sec-Fetch-Site": sec_fetch_site,
                     "Sec-Fetch-User": "?1",
                     "Upgrade-Insecure-Requests": "1",
                 }
@@ -211,7 +219,7 @@ class AsyncHttpClient:
             timeout = self._compute_request_timeout(attempt)
             if attempt > 0 and rotate_proxy_on_retry and self.proxy_pool:
                 current_proxy = self.proxy_pool.next()
-            headers = self._build_headers()
+            headers = self._build_headers(url)
             try:
                 status_code, response_text, response_headers = await self._request_with_backend(
                     url, headers=headers, proxy=current_proxy, timeout=timeout
