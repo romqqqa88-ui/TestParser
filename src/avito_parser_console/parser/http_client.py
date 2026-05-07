@@ -78,13 +78,15 @@ class AsyncHttpClient:
         min_delay = float(getattr(self.settings, "request_min_retry_delay_seconds", 0.2))
         backoff_multiplier = float(getattr(self.settings, "request_backoff_multiplier", 2.0))
         jitter_seconds = float(getattr(self.settings, "request_jitter_seconds", 0.3))
+        apply_jitter_to_retry_after = bool(getattr(self.settings, "request_apply_jitter_to_retry_after", False))
         max_backoff = float(getattr(self.settings, "request_max_backoff_seconds", 20.0))
+        from_retry_after = retry_after is not None and retry_after > 0
         if retry_after is not None and retry_after > 0:
             delay = retry_after
         else:
             delay = min(max_backoff, base_delay * (backoff_multiplier**attempt))
         delay = max(min_delay, delay)
-        if jitter_seconds > 0:
+        if jitter_seconds > 0 and (apply_jitter_to_retry_after or not from_retry_after):
             delay += random.uniform(0, jitter_seconds)
         return delay
 

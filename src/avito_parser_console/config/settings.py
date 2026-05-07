@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     request_min_retry_delay_seconds: float = 0.2
     request_backoff_multiplier: float = 2.0
     request_jitter_seconds: float = 0.3
+    request_apply_jitter_to_retry_after: bool = False
     request_max_backoff_seconds: float = 20.0
     request_retry_after_max_seconds: float = 120.0
     request_retry_statuses: str = "429,403,503"
