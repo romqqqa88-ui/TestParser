@@ -85,6 +85,7 @@ async def test_parser_runner_collects_filtered_records(monkeypatch):
     assert len(result.filtered_out_records) == 1
     assert result.filtered_out_records[0]["listing_id"] == "x1"
     assert result.filtered_out_records[0]["query_url"] == "https://www.avito.ru/moskva/kvartiry"
+    assert result.filtered_out_summary["PriceRule"] == 1
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["passed_listings"] == 0
     assert result.stats.query_stats["https://www.avito.ru/moskva/kvartiry"]["filtered_out"] == 1
 

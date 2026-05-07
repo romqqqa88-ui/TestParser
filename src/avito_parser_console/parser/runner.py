@@ -55,6 +55,7 @@ class ParserRunnerService:
 
         filtered = []
         filtered_records = []
+        filtered_summary: dict[str, int] = {}
         for query_url, listing in collected:
             ok, failed = self.filter_engine.evaluate(listing, request.filters)
             if ok:
@@ -62,6 +63,8 @@ class ParserRunnerService:
                 filtered.append(listing)
             else:
                 query_stats[query_url]["filtered_out"] += 1
+                for reason in failed:
+                    filtered_summary[reason] = filtered_summary.get(reason, 0) + 1
                 filtered_records.append(
                     {
                         "query_url": query_url,
@@ -73,4 +76,9 @@ class ParserRunnerService:
                 )
         stats.filtered_out = len(filtered_records)
         stats.query_stats = query_stats
-        return ParseRunResult(stats=stats, listings=filtered, filtered_out_records=filtered_records)
+        return ParseRunResult(
+            stats=stats,
+            listings=filtered,
+            filtered_out_records=filtered_records,
+            filtered_out_summary=filtered_summary,
+        )

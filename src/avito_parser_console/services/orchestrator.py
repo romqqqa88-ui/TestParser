@@ -59,6 +59,17 @@ class OrchestratorService:
             return self.excel.export(rows, self.settings.export_dir, query_tag="filtered_out")
         return self.csv.export(rows, self.settings.export_dir, query_tag="filtered_out")
 
+    def export_filtered_out_summary(self, result: ParseRunResult, fmt: str = "csv") -> str:
+        rows = [
+            {"rule": rule, "count": count}
+            for rule, count in sorted(result.filtered_out_summary.items(), key=lambda item: item[1], reverse=True)
+        ]
+        if fmt == "json":
+            return self.json.export(rows, self.settings.export_dir, query_tag="filtered_summary")
+        if fmt == "xlsx":
+            return self.excel.export(rows, self.settings.export_dir, query_tag="filtered_summary")
+        return self.csv.export(rows, self.settings.export_dir, query_tag="filtered_summary")
+
     @staticmethod
     def _db_row_to_dict(row: object) -> dict:
         return {k: v for k, v in row.__dict__.items() if not k.startswith("_")}

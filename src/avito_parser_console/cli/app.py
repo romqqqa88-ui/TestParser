@@ -39,6 +39,11 @@ class CliApp:
                             f"filtered={values['filtered_out']} errors={values['errors']}"
                         )
                 if self.last_result.filtered_out_records:
+                    if self.last_result.filtered_out_summary:
+                        summary_text = ", ".join(
+                            f"{rule}: {count}" for rule, count in self.last_result.filtered_out_summary.items()
+                        )
+                        self.console.print(f"[magenta]Причины отсева:[/magenta] {summary_text}")
                     export_filtered = questionary.confirm(
                         f"Экспортировать отчёт filtered_out ({len(self.last_result.filtered_out_records)} шт.)?",
                         default=False,
@@ -46,6 +51,8 @@ class CliApp:
                     if export_filtered:
                         filtered_path = self.orchestrator.export_filtered_out(self.last_result, fmt="csv")
                         self.console.print(f"[green]Filtered отчёт:[/green] {filtered_path}")
+                        summary_path = self.orchestrator.export_filtered_out_summary(self.last_result, fmt="csv")
+                        self.console.print(f"[green]Filtered summary:[/green] {summary_path}")
             elif action == "Экспорт":
                 fmt = (
                     questionary.select("Формат экспорта", choices=["xlsx", "csv", "json"], default="xlsx").ask()
