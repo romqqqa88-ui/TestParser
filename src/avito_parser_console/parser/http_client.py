@@ -70,7 +70,12 @@ class AsyncHttpClient:
         return headers
 
     async def _sleep_before_retry(self, attempt: int, retry_after: float | None = None) -> None:
+        delay = self._compute_retry_delay(attempt, retry_after=retry_after)
+        await asyncio.sleep(delay)
+
+    def _compute_retry_delay(self, attempt: int, retry_after: float | None = None) -> float:
         base_delay = float(getattr(self.settings, "request_delay_seconds", 1.0))
+        min_delay = float(getattr(self.settings, "request_min_retry_delay_seconds", 0.2))
         backoff_multiplier = float(getattr(self.settings, "request_backoff_multiplier", 2.0))
         jitter_seconds = float(getattr(self.settings, "request_jitter_seconds", 0.3))
         max_backoff = float(getattr(self.settings, "request_max_backoff_seconds", 20.0))
@@ -78,9 +83,10 @@ class AsyncHttpClient:
             delay = retry_after
         else:
             delay = min(max_backoff, base_delay * (backoff_multiplier**attempt))
+        delay = max(min_delay, delay)
         if jitter_seconds > 0:
             delay += random.uniform(0, jitter_seconds)
-        await asyncio.sleep(delay)
+        return delay
 
     def _parse_retry_after(self, retry_after_value: str | None, now: datetime | None = None) -> float | None:
         max_retry_after = float(getattr(self.settings, "request_retry_after_max_seconds", 120.0))
