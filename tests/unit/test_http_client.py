@@ -114,3 +114,39 @@ async def test_http_client_auto_backend_falls_back_to_curl(monkeypatch):
     client = AsyncHttpClient(DummySettings())
     response_text = await client.get("https://example.com")
     assert response_text == "auto_ok"
+
+
+@pytest.mark.asyncio
+async def test_http_client_auto_backend_respects_order(monkeypatch):
+    class DummySettings:
+        request_timeout = 5
+        request_retries = 0
+        request_delay_seconds = 0
+        request_backoff_multiplier = 1.0
+        request_jitter_seconds = 0.0
+        request_max_backoff_seconds = 1.0
+        request_retry_statuses = "429"
+        user_agent = "ua"
+        user_agent_pool = ""
+        browser_headers_enabled = True
+        http_backend = "auto"
+        http_backend_auto_order = "curl_cffi,httpx"
+        curl_impersonate = "chrome124"
+        proxy_rotate_on_retry = True
+
+    calls: list[str] = []
+
+    async def fake_request_httpx(self, url: str, headers: dict[str, str], proxy: str | None, timeout: int):
+        calls.append("httpx")
+        return 200, "httpx_ok", {}
+
+    async def fake_request_curl(self, url: str, headers: dict[str, str], proxy: str | None, timeout: int):
+        calls.append("curl_cffi")
+        return 429, "blocked", {}
+
+    monkeypatch.setattr(AsyncHttpClient, "_request_httpx", fake_request_httpx)
+    monkeypatch.setattr(AsyncHttpClient, "_request_curl_cffi", fake_request_curl)
+    client = AsyncHttpClient(DummySettings())
+    response_text = await client.get("https://example.com")
+    assert response_text == "httpx_ok"
+    assert calls == ["curl_cffi", "httpx"]

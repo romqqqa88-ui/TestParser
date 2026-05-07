@@ -35,6 +35,14 @@ class AsyncHttpClient:
                 continue
         return parsed or self._default_retry_statuses
 
+    @property
+    def _auto_backend_order(self) -> list[str]:
+        raw = str(getattr(self.settings, "http_backend_auto_order", "httpx,curl_cffi"))
+        parsed = [item.strip().lower() for item in raw.split(",") if item.strip()]
+        allowed = {"httpx", "curl_cffi"}
+        order = [item for item in parsed if item in allowed]
+        return order or ["httpx", "curl_cffi"]
+
     def _build_headers(self) -> dict[str, str]:
         ua = self.settings.user_agent
         ua_pool_raw = getattr(self.settings, "user_agent_pool", "")
@@ -102,14 +110,27 @@ class AsyncHttpClient:
         self, url: str, headers: dict[str, str], proxy: str | None, timeout: int
     ) -> tuple[int, str, dict]:
         if self._http_backend == "auto":
-            try:
-                status_code, response_text, response_headers = await self._request_httpx(url, headers, proxy, timeout)
-                if status_code in self._retry_statuses:
-                    # Fallback to curl_cffi in same attempt for anti-block probing.
-                    return await self._request_curl_cffi(url, headers, proxy, timeout)
-                return status_code, response_text, response_headers
-            except Exception:
-                return await self._request_curl_cffi(url, headers, proxy, timeout)
+            last_error: Exception | None = None
+            for index, backend in enumerate(self._auto_backend_order):
+                is_last = index == len(self._auto_backend_order) - 1
+                try:
+                    if backend == "curl_cffi":
+                        status_code, response_text, response_headers = await self._request_curl_cffi(
+                            url, headers, proxy, timeout
+                        )
+                    else:
+                        status_code, response_text, response_headers = await self._request_httpx(url, headers, proxy, timeout)
+                    if status_code in self._retry_statuses and not is_last:
+                        # Continue through chain in the same attempt when anti-bot statuses appear.
+                        continue
+                    return status_code, response_text, response_headers
+                except Exception as exc:
+                    last_error = exc
+                    if is_last:
+                        raise
+            if last_error is not None:
+                raise last_error
+            raise RuntimeError("No backend configured for auto mode")
         if self._http_backend == "curl_cffi":
             return await self._request_curl_cffi(url, headers, proxy, timeout)
         return await self._request_httpx(url, headers, proxy, timeout)
