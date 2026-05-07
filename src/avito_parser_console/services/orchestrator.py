@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from avito_parser_console.config.settings import Settings
@@ -69,6 +71,17 @@ class OrchestratorService:
         if fmt == "xlsx":
             return self.excel.export(rows, self.settings.export_dir, query_tag="filtered_summary")
         return self.csv.export(rows, self.settings.export_dir, query_tag="filtered_summary")
+
+    def export_run_report(self, result: ParseRunResult) -> str:
+        report = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "run_id": result.run_id,
+            "stats": result.stats.model_dump(),
+            "filtered_out_summary": result.filtered_out_summary,
+            "filtered_out_count": len(result.filtered_out_records),
+            "listings_count": len(result.listings),
+        }
+        return self.json.export([report], self.settings.export_dir, query_tag="run_report")
 
     @staticmethod
     def _db_row_to_dict(row: object) -> dict:

@@ -53,6 +53,13 @@ class CliApp:
                         self.console.print(f"[green]Filtered отчёт:[/green] {filtered_path}")
                         summary_path = self.orchestrator.export_filtered_out_summary(self.last_result, fmt="csv")
                         self.console.print(f"[green]Filtered summary:[/green] {summary_path}")
+                export_run_report = questionary.confirm(
+                    "Экспортировать полный отчёт запуска (JSON)?",
+                    default=False,
+                ).ask()
+                if export_run_report:
+                    report_path = self.orchestrator.export_run_report(self.last_result)
+                    self.console.print(f"[green]Run report:[/green] {report_path}")
             elif action == "Экспорт":
                 fmt = (
                     questionary.select("Формат экспорта", choices=["xlsx", "csv", "json"], default="xlsx").ask()
