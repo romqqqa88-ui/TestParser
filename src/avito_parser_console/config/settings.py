@@ -1,4 +1,6 @@
 from functools import lru_cache
+from pathlib import Path
+import sys
 from typing import Literal
 
 from pydantic import Field
@@ -80,4 +82,18 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    env_candidates: list[Path] = []
+    cwd = Path.cwd()
+    env_candidates.append(cwd / ".env")
+    env_candidates.append(cwd.parent / ".env")
+
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        env_candidates.append(exe_dir / ".env")
+        env_candidates.append(exe_dir.parent / ".env")
+
+    for env_path in env_candidates:
+        if env_path.exists():
+            return Settings(_env_file=env_path)
+
     return Settings()

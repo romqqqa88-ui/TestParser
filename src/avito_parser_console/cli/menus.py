@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-import questionary
+from avito_parser_console.cli.interactive import ask_select
 
 
 def main_menu() -> str:
-    return (
-        questionary.select(
-            "Выберите действие",
-            choices=[
-                "Настройка поиска",
-                "Фильтры",
-                "Запуск парсинга",
-                "Просмотр результатов",
-                "Экспорт",
-                "Выход",
-            ],
-        ).ask()
-        or "Выход"
+    return ask_select(
+        "Выберите действие",
+        choices=[
+            "Настройка поиска",
+            "Фильтры",
+            "Запуск парсинга",
+            "Проверка БД",
+            "Просмотр результатов",
+            "Экспорт",
+            "Выход",
+        ],
+        default="Выход",
     )

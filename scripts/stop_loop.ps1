@@ -7,6 +7,9 @@ $targets = Get-CimInstance Win32_Process |
             $_.CommandLine -like "*scripts/run_once_parse.py*" -and
             $_.CommandLine -like "*Start-Sleep -Seconds 120*"
         ) -or (
+            $_.Name -match "powershell|pwsh" -and
+            $_.CommandLine -like "*scripts/start_loop.ps1*"
+        ) -or (
             $_.Name -match "python" -and
             $_.CommandLine -like "*scripts/run_once_parse.py*"
         )
