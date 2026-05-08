@@ -9,6 +9,7 @@ exports/
 logs/
 storage/avito_cookies.txt
 build/
+dist/
 *.spec
 .pgdata/
 .pgdata_utf8/
