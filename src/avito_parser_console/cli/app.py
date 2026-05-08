@@ -11,6 +11,7 @@ from avito_parser_console.cli.forms import collect_run_request
 from avito_parser_console.cli.interactive import ask_confirm, ask_select
 from avito_parser_console.cli.menus import main_menu
 from avito_parser_console.config.settings import Settings
+from avito_parser_console.domain.models import ParseRunResult
 from avito_parser_console.services.orchestrator import OrchestratorService
 from avito_parser_console.storage.db import SessionLocal
 
@@ -48,6 +49,7 @@ class CliApp:
                                 f"found={values['found_listings']} dup={values['duplicate_dropped']} passed={values['passed_listings']} "
                                 f"filtered={values['filtered_out']} capped={values['capped_out']} errors={values['errors']}"
                             )
+                        self._print_parse_error_summary(self.last_result)
                     if self.last_result.filtered_out_records:
                         if self.last_result.filtered_out_summary:
                             summary_text = ", ".join(
@@ -114,6 +116,32 @@ class CliApp:
                 self.console.print(traceback.format_exc())
                 self.console.print("[yellow]Возврат в главное меню...[/yellow]")
 
+    def _print_parse_error_summary(self, result: ParseRunResult, *, limit: int = 8) -> None:
+        """Печатает детали сбоев загрузки/разбора страниц (см. error_records у ParseRunResult)."""
+        records = result.error_records
+        if not records:
+            return
+        self.console.print(f"[bold red]Ошибки при загрузке страниц ({len(records)} шт.)[/bold red]")
+        for rec in records[:limit]:
+            page = rec.get("page_url") or ""
+            detail = rec.get("detail") or ""
+            self.console.print(f"  • [cyan]{page}[/cyan]")
+            self.console.print(f"    [red]{detail}[/red]")
+        if len(records) > limit:
+            self.console.print(f"[yellow]… и ещё {len(records) - limit} записей (экспортируйте отчёт ошибок)[/yellow]")
+
+        details_joined = " ".join(str(r.get("detail") or "") for r in records)
+        if "HTTP 403" in details_joined or "HTTP 401" in details_joined:
+            self.console.print(
+                "[yellow]Подсказка: 403 часто блок без «живых» cookies. Обновите REQUEST_COOKIE / "
+                "REQUEST_COOKIE_FILE через scripts/fetch_avito_cookies.py или браузер.[/yellow]"
+            )
+        elif "HTTP 429" in details_joined:
+            self.console.print(
+                "[yellow]Подсказка: 429 — лимиты/антибот. Включите RUNTIME_PROFILE=quasi_realtime, "
+                "снизьте MAX_PAGES_PER_QUERY, используйте свежие cookies или VPN.[/yellow]"
+            )
+
     def _print_last_result(self, preview_limit: int = 10) -> None:
         result = self.last_result
         if result is None:
@@ -140,6 +168,9 @@ class CliApp:
                     f"filtered={self._safe_stat(values, 'filtered_out')}, "
                     f"errors={self._safe_stat(values, 'errors')}"
                 )
+
+        if result.error_records:
+            self._print_parse_error_summary(result)
 
         if not result.listings:
             self.console.print("[yellow]Сохранённых объявлений нет[/yellow]")
