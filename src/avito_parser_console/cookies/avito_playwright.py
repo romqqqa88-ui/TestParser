@@ -15,6 +15,28 @@ from avito_parser_console.config.settings import Settings
 DEFAULT_FETCH_URL = "https://www.avito.ru/moskva/kvartiry"
 
 
+def _bundle_playwright_browser_cache_path() -> str | None:
+    """PyInstaller exe bundles the Playwright driver but not Chromium; use normal user cache."""
+    if not getattr(sys, "frozen", False):
+        return None
+    if sys.platform == "win32":
+        la = os.environ.get("LOCALAPPDATA")
+        if not la:
+            return None
+        return str(Path(la) / "ms-playwright")
+    if sys.platform == "darwin":
+        return str(Path.home() / "Library" / "Caches" / "ms-playwright")
+    return str(Path.home() / ".cache" / "ms-playwright")
+
+
+def _ensure_playwright_browser_env_for_frozen_bundle() -> str | None:
+    """Point PLAYWRIGHT_BROWSERS_PATH away from ``_MEI*\\.local-browsers`` (missing in one-file exe)."""
+    target = _bundle_playwright_browser_cache_path()
+    if target:
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = target
+    return target
+
+
 def resolve_cookie_storage_path(settings: Settings) -> Path:
     """Where to write cookies: ``REQUEST_COOKIE_FILE`` or ``storage/avito_cookies.txt`` under cwd."""
     raw = str(getattr(settings, "request_cookie_file", "") or "").strip()
@@ -55,6 +77,10 @@ async def fetch_avito_cookie_header(
     """Open Avito in Chromium, collect cookies, write UTF-8 file, return Cookie header string."""
     log = status or (lambda m: print(m, file=sys.stderr))
 
+    cache = _ensure_playwright_browser_env_for_frozen_bundle()
+    if cache:
+        log(f"Кэш браузеров Playwright: {cache}")
+
     try:
         from playwright.async_api import async_playwright
     except ImportError as exc:
@@ -82,7 +108,18 @@ async def fetch_avito_cookie_header(
     log("Открываю Chromium и загружаю страницы Авито…")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(**launch_kwargs)
+        try:
+            browser = await p.chromium.launch(**launch_kwargs)
+        except Exception as exc:
+            hint = ""
+            if getattr(sys, "frozen", False):
+                hint = (
+                    " Для .exe один раз установите Chromium в систему: откройте cmd и выполните "
+                    "`playwright install chromium` (нужен Python с установленным пакетом playwright)."
+                )
+            elif cache and not Path(cache).exists():
+                hint = f" Создайте кэш: `playwright install chromium` (ожидается каталог {cache})."
+            raise RuntimeError(f"{exc}.{hint}") from exc
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
             user_agent=(
