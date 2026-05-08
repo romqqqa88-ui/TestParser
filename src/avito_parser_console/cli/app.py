@@ -8,12 +8,18 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
 from avito_parser_console.cli.forms import collect_run_request
-from avito_parser_console.cli.interactive import ask_confirm, ask_select
+from avito_parser_console.cli.interactive import ask_confirm, ask_select, ask_text
 from avito_parser_console.cli.menus import main_menu
 from avito_parser_console.config.settings import Settings
 from avito_parser_console.domain.models import ParseRunResult
 from avito_parser_console.services.orchestrator import OrchestratorService
 from avito_parser_console.storage.db import SessionLocal
+from avito_parser_console.cookies.avito_playwright import (
+    DEFAULT_FETCH_URL,
+    fetch_avito_cookie_header,
+    resolve_cookie_storage_path,
+    verify_fetched_cookies,
+)
 
 
 class CliApp:
@@ -89,6 +95,8 @@ class CliApp:
                             self.console.print(f"[green]Errors report:[/green] {errors_path}")
                 elif action == "Проверка БД":
                     await self.check_database()
+                elif action == "Обновить cookies":
+                    await self.refresh_cookies()
                 elif action == "Экспорт":
                     fmt = ask_select("Формат экспорта", choices=["xlsx", "csv", "json"], default="xlsx")
                     if not fmt:
@@ -209,6 +217,77 @@ class CliApp:
         if area is None:
             return f"{rooms_text}, площадь н/д"
         return f"{rooms_text}, {area:g} м2"
+
+    async def refresh_cookies(self) -> None:
+        """Обновить файл cookies через локальный Chromium (Playwright)."""
+        mode = ask_select(
+            "Как обновить cookies?",
+            choices=[
+                "Тихо (headless)",
+                "С окном браузера",
+                "С окном + пауза для входа (2 мин)",
+            ],
+            default="Тихо (headless)",
+        )
+        if not mode:
+            self.console.print("[yellow]Отмена.[/yellow]")
+            return
+        headless = mode == "Тихо (headless)"
+        manual = mode == "С окном + пауза для входа (2 мин)"
+        seconds = 120
+        if manual:
+            raw = ask_text("Сколько секунд ждать перед сохранением cookies?", default="120")
+            try:
+                seconds = max(1, int((raw or "120").strip()))
+            except ValueError:
+                seconds = 120
+
+        url = ask_text("URL страницы Авито для загрузки", default=DEFAULT_FETCH_URL).strip() or DEFAULT_FETCH_URL
+        do_verify = ask_confirm("Проверить cookies пробным запросом (извлечение объявлений)?", default=True)
+
+        out_path = resolve_cookie_storage_path(self.settings)
+        self.console.print(f"[cyan]Файл cookies:[/cyan] {out_path.resolve()}")
+
+        def status(msg: str) -> None:
+            self.console.print(f"[dim]{msg}[/dim]")
+
+        try:
+            cookie = await fetch_avito_cookie_header(
+                url=url,
+                output_path=out_path,
+                headless=headless,
+                manual_login_wait=manual,
+                manual_login_wait_seconds=seconds,
+                status=status,
+            )
+        except ImportError as exc:
+            self.console.print(f"[red]{exc}[/red]")
+            return
+        except Exception as exc:
+            self.console.print(f"[red]Не удалось получить cookies:[/red] {exc}")
+            self.console.print(traceback.format_exc())
+            return
+
+        if cookie:
+            self.console.print(f"[green]Сохранено {len(cookie)} символов.[/green]")
+        else:
+            self.console.print("[yellow]Строка Cookie пустая — возможна блокировка или проверка Авито.[/yellow]")
+
+        conf_path = str(getattr(self.settings, "request_cookie_file", "") or "").strip()
+        if conf_path:
+            self.console.print(
+                "[dim]Значение REQUEST_COOKIE_FILE в конфиге задано — парсер будет читать этот файл при каждом запросе.[/dim]"
+            )
+        else:
+            self.console.print(
+                "[yellow]Подсказка:[/yellow] укажите в .env "
+                "`REQUEST_COOKIE_FILE=storage/avito_cookies.txt` (или полный путь к файлу выше)."
+            )
+
+        if do_verify and cookie:
+            ok, details = await verify_fetched_cookies(url, cookie)
+            tag = "[green]Проверка[/green]" if ok else "[yellow]Проверка[/yellow]"
+            self.console.print(f"{tag}: {details}")
 
     async def check_database(self) -> None:
         db_target = self._format_database_target()
