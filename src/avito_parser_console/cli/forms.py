@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import questionary
 
+from avito_parser_console.config.settings import Settings
 from avito_parser_console.domain.models import FilterConfig, ParseRunRequest, SearchConfig
 
 
@@ -28,9 +29,10 @@ def _ask_optional_int(prompt: str, default: str = "") -> int | None:
             print(f"Некорректное число: {raw}. Повторите ввод или оставьте пустым.")
 
 
-def collect_run_request() -> ParseRunRequest:
+def collect_run_request(settings: Settings) -> ParseRunRequest:
     urls = questionary.text("URL поиска (через запятую):").ask() or ""
-    page_limit = _ask_int("Макс страниц на запрос:", default="3", min_value=1)
+    default_pages = str(max(1, int(settings.max_pages_per_query)))
+    page_limit = _ask_int("Макс страниц на запрос:", default=default_pages, min_value=1)
     min_price = _ask_optional_int("Мин цена (пусто = нет):", default="")
     max_price = _ask_optional_int("Макс цена (пусто = нет):", default="")
     max_results_per_query = _ask_optional_int("Лимит объявлений на URL после фильтров (пусто = нет):", default="")

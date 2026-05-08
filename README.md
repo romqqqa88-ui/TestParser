@@ -31,6 +31,17 @@
 
 - `docker compose up --build`
 
+## Квазиреалтайм профиль
+
+- Для щадящего near-real-time режима добавьте в `.env`: `RUNTIME_PROFILE=quasi_realtime`.
+- Профиль автоматически ставит безопасные лимиты для Авито: ниже конкуренция, меньше страниц за проход, более длинный backoff/jitter.
+- Для ручного запуска в CLI значение `max_pages_per_query` теперь подставляется из `MAX_PAGES_PER_QUERY` (с учетом активного профиля).
+- Для уведомлений в файл задайте `NEW_LISTINGS_FILE`. После каждого запуска туда дописываются только новые объявления.
+- Если путь заканчивается на `.jsonl` (рекомендуется, например `NEW_LISTINGS_FILE=new_listings.jsonl`) — пишется JSONL (один JSON-объект на строку).
+- Иначе пишется простой текстовый лог.
+- Для нестабильного подключения к PostgreSQL можно настроить короткие ретраи:
+  `DB_RETRIES`, `DB_RETRY_DELAY_SECONDS`, `DB_RETRY_BACKOFF_MULTIPLIER`, `DB_RETRY_JITTER_SECONDS`.
+
 ## Структура
 
 - `src/avito_parser_console/cli` — интерактивное меню

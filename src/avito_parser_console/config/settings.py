@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_env: Literal["dev", "prod"] = "dev"
+    runtime_profile: Literal["default", "quasi_realtime"] = "default"
     log_level: str = "INFO"
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/avito_parser"
 
@@ -51,10 +52,30 @@ class Settings(BaseSettings):
 
     export_dir: str = "exports"
     export_max_rows_per_file: int = 50000
+    new_listings_file: str = ""
+    db_retries: int = 2
+    db_retry_delay_seconds: float = 0.5
+    db_retry_backoff_multiplier: float = 2.0
+    db_retry_jitter_seconds: float = 0.2
 
     scheduler_enabled: bool = False
     scheduler_timezone: str = "Europe/Moscow"
     scheduler_interval_minutes: int = Field(default=60, ge=1)
+
+    def model_post_init(self, __context: object) -> None:
+        if self.runtime_profile != "quasi_realtime":
+            return
+        # Safer defaults for Avito polling loops: less bursty traffic, lower ban probability.
+        self.request_retries = 2
+        self.request_delay_seconds = 3.0
+        self.request_min_retry_delay_seconds = 0.8
+        self.request_backoff_multiplier = 2.5
+        self.request_jitter_seconds = 1.2
+        self.request_max_backoff_seconds = 180.0
+        self.request_retry_after_max_seconds = 240.0
+        self.max_concurrency = 1
+        self.max_pages_per_query = 2
+        self.scheduler_interval_minutes = 1
 
 
 @lru_cache

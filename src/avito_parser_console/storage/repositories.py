@@ -44,7 +44,7 @@ class ListingRepository:
             return 0
         values = []
         for item in listings:
-            payload = item.model_dump(mode="json")
+            payload = item.model_dump(mode="python")
             payload["url"] = str(item.url)
             values.append(payload)
         stmt = insert(ListingDB).values(values)
@@ -74,6 +74,12 @@ class ListingRepository:
         )
         await self.session.execute(stmt)
         return len(listings)
+
+    async def existing_listing_ids(self, listing_ids: list[str]) -> set[str]:
+        if not listing_ids:
+            return set()
+        res = await self.session.execute(select(ListingDB.listing_id).where(ListingDB.listing_id.in_(listing_ids)))
+        return {row[0] for row in res.all()}
 
     async def fetch_for_export(self, limit: int = 1000) -> list[ListingDB]:
         res = await self.session.execute(select(ListingDB).order_by(ListingDB.updated_at.desc()).limit(limit))

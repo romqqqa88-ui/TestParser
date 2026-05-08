@@ -24,7 +24,7 @@ class CliApp:
                 self.console.print("[green]Завершение работы[/green]")
                 return
             if action == "Запуск парсинга":
-                request = collect_run_request()
+                request = collect_run_request(self.settings)
                 async with SessionLocal() as session:
                     self.console.print("[cyan]Парсинг запущен...[/cyan]")
                     self.last_result = await self.orchestrator.run_parse(request, session)

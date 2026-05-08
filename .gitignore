@@ -8,3 +8,7 @@ __pycache__/
 exports/
 logs/
 storage/avito_cookies.txt
+build/
+*.spec
+.pgdata/
+.pgdata_utf8/
