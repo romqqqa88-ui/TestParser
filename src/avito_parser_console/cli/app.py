@@ -303,6 +303,19 @@ class CliApp:
                 self.console.print(f"[red]Не удалось подключиться к БД ({db_target}):[/red] {exc}")
             else:
                 self.console.print(f"[red]Не удалось подключиться к БД:[/red] {exc}")
+            self._print_db_connection_hint(exc)
+
+    def _print_db_connection_hint(self, exc: Exception) -> None:
+        detail = str(exc).lower()
+        refused = isinstance(exc, ConnectionRefusedError) or (
+            "connection refused" in detail or "1225" in detail or "отклонил" in detail
+        )
+        if refused:
+            self.console.print(
+                "[yellow]Подсказка:[/yellow] PostgreSQL не отвечает на этом хосте/порту. "
+                "Запустите сервер (например `docker compose up -d` в каталоге проекта или локальный postgres на том же порту), "
+                "либо поправьте `DATABASE_URL` в `.env` рядом с программой. Если exe из `dist\\`, положите туда копию `.env`.[/yellow]"
+            )
 
     def _format_database_target(self) -> str | None:
         try:
